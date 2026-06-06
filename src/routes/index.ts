@@ -1,11 +1,10 @@
 import { Router } from 'express';
-import { getAllUsers, getUser, createUser, deleteUser } from '../controllers/userController';
+import userRoutes from './users'; // if you move user routes to user.ts
 
 const router = Router();
 
-router.get('/', getAllUsers);
-router.get('/:id', getUser);
-router.post('/', createUser);
-router.delete('/:id', deleteUser);
+// Mount separated route files
+router.use('/users', userRoutes); // if you have src/routes/user.ts
+
 
 export default router;

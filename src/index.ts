@@ -11,11 +11,12 @@ app.use(cors());
 app.use(express.json());
 
 // All routes under /users and /posts
-app.use(routes);
 
 app.get('/', (req: Request, res: Response) => {
   res.json({ message: 'Hello from Express + TypeScript + Sequelize' });
 });
+
+app.use(routes);
 
 const PORT = process.env.PORT || 3000;
 
@@ -23,7 +24,8 @@ async function start() {
   try {
     await sequelize.authenticate();
     console.log('Database connected successfully.');
-    // await sequelize.sync({ force: false }); // optional in dev
+    // ensure models are synced (creates tables if they don't exist)
+    await sequelize.sync({ alter: true });
 
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);

@@ -5,44 +5,27 @@ const router = Router();
 
 // GET /users
 router.get('/', async (req: Request, res: Response) => {
-  const users = await User.findAll();
-  res.json(users);
+  res.status(200).json({ message: 'getAllUsers - not implemented yet' });
 });
 
 // GET /users/:id
 router.get('/:id', async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const user = await User.findByPk(id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json(user);
+  res.status(200).json({ message: 'getUser - not implemented yet' });
 });
 
 // POST /users
 router.post('/', async (req: Request, res: Response) => {
-  const { name, email } = req.body;
-  const user = await User.create({ name, email });
-  res.status(201).json(user);
+  res.status(201).json({ message: 'createUser - not implemented yet' });
 });
 
 // PUT /users/:id
 router.put('/:id', async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { name, email } = req.body;
-  const user = await User.findByPk(id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-
-  await user.update({ name, email });
-  res.json(user);
+  res.status(200).json({ message: 'User updated - not implemented yet' });
 });
 
 // DELETE /users/:id
 router.delete('/:id', async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const user = await User.findByPk(id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-
-  await user.destroy();
-  res.status(204).send();
+  res.status(200).json({ message: 'deleteUser - not implemented yet' });
 });
 
 export default router;
