@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// sequlize and set up database connection
 export const sequelize = new Sequelize(
   process.env.DB_NAME || 'devdb',
   process.env.DB_USER || 'devuser',
