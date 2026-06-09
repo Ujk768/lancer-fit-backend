@@ -16,7 +16,7 @@ app.use(express.urlencoded({ extended: true }));
 // All routes under /users and /posts
 
 app.get("/", (req: Request, res: Response) => {
-  res.json({ message: "Hello from Express + TypeScript + Sequelize" });
+  res.json({ message: "Hello from Lancer Fit Backend" });
 });
 
 app.use(routes);

@@ -24,6 +24,7 @@ export class PersonalChallenge extends Model {
   public startDate!: Date;
   public endDate!: Date;
   public status!: string;
+  public points!: number;
 }
 
 TLCChallenge.init(
@@ -64,6 +65,7 @@ PersonalChallenge.init(
     startDate: { type: DataTypes.DATE, allowNull: false },
     endDate: { type: DataTypes.DATE, allowNull: false },
     status: { type: DataTypes.STRING, allowNull: false },
+    points: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     // foreign key to User -> in one to many relationship with User - fk lives in many side
     userId: {
       type: DataTypes.INTEGER,
