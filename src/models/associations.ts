@@ -4,6 +4,9 @@ import { TLCChallenge } from './Challenge';
 import { TLCChallengeParticipant } from './Participant';
 import { PersonalChallenge } from './Challenge';
 
+import UserBadge from './UserBadge';
+import Badge from './Badges';
+
 export function defineAssociations() {
 
   // ── M:N — User <-> TLCChallenge through the bridge ──────────────
@@ -38,5 +41,19 @@ export function defineAssociations() {
   PersonalChallenge.belongsTo(User, {
     foreignKey: 'userId',
     as: 'user',
+  });
+
+  User.belongsToMany(Badge, {
+    through: UserBadge,
+    foreignKey: 'userId',
+    otherKey: 'badgeId',
+    as: 'badges', // Allows: user.badges to get all badges earned by a user
+  });
+
+  Badge.belongsToMany(User, {
+    through: UserBadge,
+    foreignKey: 'badgeId',
+    otherKey: 'userId',
+    as: 'owners', // Allows: badge.owners to see all users who earned this badge
   });
 }

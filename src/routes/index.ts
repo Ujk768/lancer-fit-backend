@@ -1,14 +1,15 @@
 import { Router } from 'express';
-import userRoutes from './users'; // if you move user routes to user.ts
 import authRoutes from './authRoutes';
 import challengeRoutes from './challengeRoutes';
+import userRoutes from './userRoutes';
+import badgeRoutes from './badgeRoutes';
 
 const router = Router();
 
-// Mount separated route files
-router.use('/users', userRoutes); // if you have src/routes/user.ts
-router.use('/challenges', challengeRoutes);
+router.use('/challenge', challengeRoutes);
 router.use('/auth',authRoutes)
+router.use('/user',userRoutes)
+router.use('/badges',badgeRoutes)
 
 
 export default router;

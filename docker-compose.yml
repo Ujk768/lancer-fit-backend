@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database Service
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: node_user
+      POSTGRES_PASSWORD: node_password
+      POSTGRES_DB: node_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Tells Docker how to verify Postgres is actually ready to receive traffic
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U node_user -d node_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # TypeScript Node.js Backend Service
+  backend:
+    build:
+      context: ./backend
+      target: development
+    container_name: node_ts_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      # Sequelize connection string utilizing the DB service name
+      - DATABASE_URL=postgres://node_user:node_password@db:5432/node_db
+    volumes:
+      - ./backend:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy # Backend will wait to boot until db finishes starting up
+
+volumes:
+  pgdata:

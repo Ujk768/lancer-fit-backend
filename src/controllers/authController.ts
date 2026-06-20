@@ -1,11 +1,10 @@
 import { Request, Response } from "express";
-import { User } from "../models";
 import { hashPassword, verifyPassword } from "../utils/password";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "../utils/jwt";
+import { User } from "../models/User";
 
 
 export const registerUser = async (req: Request, res: Response) => {
-  console.log("Register User Request Body:", req.body); // log the incoming request body for debugging
   try {
     const { name, email, password } = req.body;
 
