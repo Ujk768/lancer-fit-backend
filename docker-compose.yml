@@ -1,45 +1,49 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database Service
+  # 1. PostgreSQL Database Service (Replicates your docker run command)
   db:
-    image: postgres:15-alpine
-    container_name: postgres_db
+    image: postgres:latest
+    container_name: lancer-fit-db
     restart: always
     environment:
-      POSTGRES_USER: node_user
-      POSTGRES_PASSWORD: node_password
-      POSTGRES_DB: node_db
+      POSTGRES_USER: ${DB_USER:-user} 
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-pwd}
+      POSTGRES_DB: ${DB_NAME:-lancer-fit-db}
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-    # Tells Docker how to verify Postgres is actually ready to receive traffic
+      - pgdata:/var/lib/postgresql
+    # Verifies Postgres is fully ready to accept connections before the backend starts
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U node_user -d node_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-user} -d ${DB_NAME:-lancer-fit-db}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # TypeScript Node.js Backend Service
+  # 2. Node.js TypeScript Backend Service
   backend:
     build:
-      context: ./backend
-      target: development
+      context: .
+      target: development # Tells Docker to use the "development" stage in your Dockerfile
     container_name: node_ts_backend
     restart: always
     ports:
       - "8000:8000"
     environment:
-      - PORT=8000
-      # Sequelize connection string utilizing the DB service name
-      - DATABASE_URL=postgres://node_user:node_password@db:5432/node_db
+      - PORT=${PORT:-8000}
+      - DB_HOST=${DB_HOST:-db} # Points to the "db" service defined above
+      - DB_NAME=${DB_NAME:-lancer-fit-db}
+      - DB_USER=${DB_USER:-user}
+      - DB_PASSWORD=${DB_PASSWORD:-pwd}
+      - DB_PORT=${DB_PORT:-5432}
     volumes:
-      - ./backend:/usr/src/app
-      - /usr/src/app/node_modules
+      - .:/usr/src/app # Bind mount allows live code reloading
+      - /usr/src/app/node_modules # Prevents your local node_modules from overriding the container's
     depends_on:
       db:
-        condition: service_healthy # Backend will wait to boot until db finishes starting up
+        condition: service_healthy # Backend waits for Postgres to pass its health check
 
+# Named volume to persist your database data across container restarts
 volumes:
   pgdata:
