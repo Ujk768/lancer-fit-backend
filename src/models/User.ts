@@ -1,6 +1,9 @@
 import { Model, DataTypes } from 'sequelize';
 import { sequelize } from '../config/database';
 
+// flags, faculty, age, xp , dailycheckin, longest streak
+// - daily check-in logic -> streak counter
+
 export class User extends Model {
   declare userId: number;
   declare profileImage?: string;

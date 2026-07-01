@@ -3,6 +3,8 @@ import { sequelize } from "../config/database";
 
 //A model is an abstraction that represents a table in your database.
 //  it is a class that extends Model.
+
+// status - active,
 export class TLCChallenge extends Model {
   public challengeId!: number;
   public challengeName!: string;
@@ -14,6 +16,27 @@ export class TLCChallenge extends Model {
   public venue!: string;
   public instructorName!: string;
 }
+
+
+/***
+ * 
+ * Daily Quests -> 3 everyday / pool of 50
+ * - randomly add / remove
+ * - name
+ * - description
+ *  - date
+ * 
+ * 
+ */
+
+// Also called Other Activity (+ button)
+/**
+ * units per challenge
+ * points per challenge
+ * new field called other
+ * activity will be created by admin and points will be set by admin
+ * other will be another type of activity creaetd by admin and you get 1 point per minute
+ */
 
 export class PersonalChallenge extends Model {
   public userId!: number;
