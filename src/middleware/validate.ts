@@ -7,9 +7,9 @@ export const validate = (schema: ZodSchema) => {
     const result = schema.safeParse(req.body);
     if (!result.success) {
       // Zod gives you a detailed list of exactly what failed
-      const errors = result.error.errors.map(e => ({
-        field: e.path.join('.'),
-        message: e.message,
+      const errors = result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
       }));
 
       return res.status(400).json({ message: 'Validation failed', errors });
