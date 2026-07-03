@@ -23,18 +23,14 @@ export enum Faculty {
 
 export class User extends Model {
   declare userId: number;
-
   declare firstName: string;
   declare lastName: string;
-
   declare name: string;
   declare email: string;
   declare password: string;
-  declare role: UserRole;
-
+  declare role: string;
   declare nationality: string;
-  declare faculty: Faculty;
-
+  declare faculty: string;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 }
@@ -69,17 +65,17 @@ User.init(
     password: { type: DataTypes.STRING, allowNull: false },
 
     faculty: {
-      type: DataTypes.ENUM(...Object.values(Faculty)),
+      type: DataTypes.STRING,
       allowNull: false,
     },
 
     nationality: {
-      type: DataTypes.STRING(2),
+      type: DataTypes.STRING,
       allowNull: false,
     },
 
     role: {
-      type: DataTypes.ENUM(UserRole.STUDENT, UserRole.ADMIN),
+      type: DataTypes.STRING,
       allowNull: false,
       defaultValue: UserRole.STUDENT,
     },

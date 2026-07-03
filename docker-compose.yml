@@ -1,20 +1,19 @@
 version: '3.8'
 
 services:
-  # 1. PostgreSQL Database Service (Replicates your docker run command)
+  # 1. PostgreSQL Database Service
   db:
     image: postgres:latest
     container_name: lancer-fit-db
     restart: always
     environment:
-      POSTGRES_USER: ${DB_USER:-user} 
+      POSTGRES_USER: ${DB_USER:-user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-pwd}
       POSTGRES_DB: ${DB_NAME:-lancer-fit-db}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql
-    # Verifies Postgres is fully ready to accept connections before the backend starts
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-user} -d ${DB_NAME:-lancer-fit-db}"]
       interval: 5s
@@ -25,25 +24,33 @@ services:
   backend:
     build:
       context: .
-      target: development # Tells Docker to use the "development" stage in your Dockerfile
+      target: development
     container_name: node_ts_backend
     restart: always
     ports:
       - "8000:8000"
     environment:
       - PORT=${PORT:-8000}
-      - DB_HOST=${DB_HOST:-db} # Points to the "db" service defined above
+      - DB_HOST=${DB_HOST:-db}
       - DB_NAME=${DB_NAME:-lancer-fit-db}
       - DB_USER=${DB_USER:-user}
       - DB_PASSWORD=${DB_PASSWORD:-pwd}
       - DB_PORT=${DB_PORT:-5432}
-    volumes:
-      - .:/usr/src/app # Bind mount allows live code reloading
-      - /usr/src/app/node_modules # Prevents your local node_modules from overriding the container's
     depends_on:
       db:
-        condition: service_healthy # Backend waits for Postgres to pass its health check
+        condition: service_healthy
+    develop:
+      watch:
+        # Sync source code changes into the container instantly (no rebuild)
+        - action: sync
+          path: ./src
+          target: /usr/src/app/src
+        # Rebuild the image if package.json changes (new dependencies)
+        - action: rebuild
+          path: ./package.json
+        # Rebuild if package-lock.json changes too
+        - action: rebuild
+          path: ./package-lock.json
 
-# Named volume to persist your database data across container restarts
 volumes:
   pgdata:

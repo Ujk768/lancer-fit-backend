@@ -35,20 +35,9 @@ export class TLCChallenge extends Model {
  * points per challenge
  * new field called other
  * activity will be created by admin and points will be set by admin
- * other will be another type of activity creaetd by admin and you get 1 point per minute
+ * other will be another type of activity creaetd by user and you get 1 point per minute
  */
 
-export class PersonalChallenge extends Model {
-  public userId!: number;
-  public challengeId!: number;
-  public challengeName!: string;
-  public challengeImage?: string;
-  public challengeDescription!: string;
-  public startDate!: Date;
-  public endDate!: Date;
-  public status!: string;
-  public points!: number;
-}
 
 TLCChallenge.init(
   {
@@ -70,41 +59,6 @@ TLCChallenge.init(
     sequelize,
     modelName: "tlc_challenges",
     tableName: "tlc_challenges",
-    timestamps: true,
-    underscored: false,
-  },
-);
-
-PersonalChallenge.init(
-  {
-    challengeId: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true,
-    },
-    challengeName: { type: DataTypes.STRING, allowNull: false },
-    challengeImage: { type: DataTypes.STRING, allowNull: true },
-    challengeDescription: { type: DataTypes.TEXT, allowNull: false },
-    startDate: { type: DataTypes.DATE, allowNull: false },
-    endDate: { type: DataTypes.DATE, allowNull: false },
-    status: { type: DataTypes.STRING, allowNull: false },
-    points: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
-    // foreign key to User -> in one to many relationship with User - fk lives in many side
-    userId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    //   unique: true, // one personal challenge per user
-      references: {
-        model: "users",
-        key: "userId",
-      },
-      onDelete: "CASCADE",
-    },
-  },
-  {
-    sequelize,
-    modelName: "personal_challenge",
-    tableName: "personal_challenges",
     timestamps: true,
     underscored: false,
   },

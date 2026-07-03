@@ -7,6 +7,9 @@ export class Badge extends Model {
   declare badgeName: string;
   declare badgeImage: string;
   declare badgeDescription: string;
+  declare completionCriteria: number;
+  declare awardXpValue: number;
+  declare secret: boolean;
 }
 
 Badge.init(
@@ -15,6 +18,9 @@ Badge.init(
     badgeName: { type: DataTypes.STRING, allowNull: false },
     badgeImage: { type: DataTypes.STRING, allowNull: false },
     badgeDescription: { type: DataTypes.TEXT, allowNull: false },
+    completionCriteria: { type: DataTypes.INTEGER, allowNull: false },
+    awardXpValue: { type: DataTypes.INTEGER, allowNull: false },
+    secret: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
   { sequelize, modelName: 'badge', tableName: 'badges', timestamps: true, underscored: false }
 );

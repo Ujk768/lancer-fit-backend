@@ -3,10 +3,10 @@ import { User } from "./User";
 import { UserStats } from "./UserStats";
 import { TLCChallenge } from "./Challenge";
 import { TLCChallengeParticipant } from "./Participant";
-import { PersonalChallenge } from "./Challenge";
-
 import UserBadge from "./UserBadge";
 import Badge from "./Badges";
+import { Activity } from "./Activity";
+import { ActivityLog } from "./ActivityLog";
 
 export function defineAssociations() {
   // ── M:N — User <-> TLCChallenge through the bridge ──────────────
@@ -27,10 +27,10 @@ export function defineAssociations() {
     as: "user",
   });
 
-  // ── 1:M — User -> PersonalChallenge ─────────────────────────────
-  User.hasMany(PersonalChallenge, {
+  // ── 1:M — User -> Activity ──────────────────────────────────────
+  User.hasMany(Activity, {
     foreignKey: "userId",
-    as: "personalChallenges",
+    as: "activities",
     onDelete: "CASCADE",
   });
 
@@ -60,7 +60,7 @@ export function defineAssociations() {
     as: "participations",
   });
 
-  PersonalChallenge.belongsTo(User, {
+  Activity.belongsTo(User, {
     foreignKey: "userId",
     as: "user",
   });
@@ -71,4 +71,10 @@ export function defineAssociations() {
     otherKey: "userId",
     as: "owners", // Allows: badge.owners to see all users who earned this badge
   });
+
+  User.hasMany(ActivityLog, { foreignKey: "userId" });
+  ActivityLog.belongsTo(User, { foreignKey: "userId" });
+
+  Activity.hasMany(ActivityLog, { foreignKey: "activityId" });
+  ActivityLog.belongsTo(Activity, { foreignKey: "activityId" });
 }

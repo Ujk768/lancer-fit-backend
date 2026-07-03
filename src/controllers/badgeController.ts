@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import UserBadge from '../models/UserBadge';
 import Badge from '../models/Badges';
 
@@ -7,7 +7,7 @@ import Badge from '../models/Badges';
  * @route   GET /api/badges
  * @access  Public
  */
-export const getAllBadges = async (req: Request, res: Response): Promise<void> => {
+export const getAllBadges = async (req: Request, res: Response,next: NextFunction) => {
   try {
     // Fetch all records from the badges table
     const badges = await Badge.findAll();
@@ -19,25 +19,19 @@ export const getAllBadges = async (req: Request, res: Response): Promise<void> =
       data: badges,
     });
   } catch (error) {
-    console.error('Error fetching badges:', error);
-    
-    // Handle database or unexpected errors gracefully
-    res.status(500).json({
-      success: false,
-      message: 'Server Error: Unable to retrieve badges.',
-    });
+    next(error); // Pass the error to the next middleware (error handler)
   }
 };
 
 
 export const awardBadge = async (userId: number, badgeId: number) => {
-  // Check if they already have it so you don't duplicate it
-  const alreadyEarned = await UserBadge.findOne({ where: { userId, badgeId } });
+  // // Check if they already have it so you don't duplicate it
+  // const alreadyEarned = await UserBadge.findOne({ where: { userId, badgeId } });
   
-  if (!alreadyEarned) {
-    await UserBadge.create({ userId, badgeId });
-    console.log(`Badge ${badgeId} successfully awarded to user ${userId}`);
-  }
+  // if (!alreadyEarned) {
+  //   await UserBadge.create({ userId, badgeId });
+  //   console.log(`Badge ${badgeId} successfully awarded to user ${userId}`);
+  // }
 };
 
 
