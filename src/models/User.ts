@@ -19,6 +19,7 @@ export enum Faculty {
   NURSING = "Faculty of Nursing",
   ODETTE_BUSINESS = "Odette School of Business",
   SCIENCE = "Faculty of Science",
+  ADMIN = "Admin",
 }
 
 export class User extends Model {

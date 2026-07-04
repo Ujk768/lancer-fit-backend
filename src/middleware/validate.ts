@@ -4,6 +4,7 @@ import { ZodSchema } from 'zod';
 
 export const validate = (schema: ZodSchema) => {
   return (req: Request, res: Response, next: NextFunction) => {
+   console.log("Schema in validate middleware",req.body)
     const result = schema.safeParse(req.body);
     if (!result.success) {
       // Zod gives you a detailed list of exactly what failed

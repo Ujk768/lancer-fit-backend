@@ -12,6 +12,7 @@ export const signupSchema = z.object({
     message: 'Select a valid faculty',
   }),
   nationality: z.string().trim().regex(/^[a-z]{2}$/i, 'Nationality must use a 2-letter code'),
+  role: z.enum(['admin', 'user']).optional(),
 });
 
 export const loginSchema = z.object({

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { Quest } from "../models/Quests";
+import { success } from "zod";
 
 export const getAllQuests = async (
   req: Request,
@@ -14,16 +15,26 @@ export const getAllQuests = async (
   }
 };
 
-export const getRandomQuests = async (
+export const activateQuest = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const quests = await Quest.findAll();
-    //randomly select 3 quests
-    const randomQuests = quests.sort(() => 0.5 - Math.random()).slice(0, 3);
-    res.status(200).json({ success: true, quests: randomQuests });
+    const { questId } = req.body;
+    const quest = await Quest.findByPk(questId);
+    if (!quest) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Quest not found" });
+    }
+    quest.isActive = true;
+    await quest.save();
+    return res.status(200).json({
+      success: true,
+      data: quest,
+      message: "Quest Active",
+    });
   } catch (err) {
     next(err);
   }
@@ -35,9 +46,9 @@ export const editQuest = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
+    const { questId } = req.params;
     const { title, description, points } = req.body;
-    const quest = await Quest.findByPk(id as string);
+    const quest = await Quest.findByPk(questId as string);
     if (!quest) {
       return res
         .status(404)
@@ -56,8 +67,8 @@ export const deleteQuest = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
-    const quest = await Quest.findByPk(id as string);
+    const { questId } = req.params;
+    const quest = await Quest.findByPk(questId as string);
     if (!quest) {
       return res
         .status(404)
@@ -78,9 +89,29 @@ export const addQuest = async (
   next: NextFunction,
 ) => {
   try {
-    const { title, description, points } = req.body;
-    const quest = await Quest.create({ title, description, points });
+    const { title, description, points, category } = req.body;
+    const quest = await Quest.create({ title, description, points, category });
     res.status(201).json({ success: true, quest });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getActiveQuests = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const quests = await Quest.findAll({
+      where: {
+        isActive: true,
+      },
+    });
+    res.status(200).json({
+      success: true,
+      quests,
+    });
   } catch (err) {
     next(err);
   }

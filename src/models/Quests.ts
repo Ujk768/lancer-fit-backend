@@ -2,11 +2,13 @@ import { DataTypes, Model } from "sequelize";
 import { sequelize } from "../config/database";
 
 export class Quest extends Model {
-    declare questId: number;
-    declare title: string;
-    declare xp: number;
-    declare category: string;
+  declare questId: number;
+  declare title: string;
+  declare xp: number;
+  declare category: string;
+  declare isActive: boolean
 }
+
 
 Quest.init(
   {
@@ -28,6 +30,11 @@ Quest.init(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    isActive:{
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
+    }
   },
   {
     sequelize,
@@ -35,5 +42,6 @@ Quest.init(
     tableName: "quests",
     timestamps: true,
     underscored: false,
-  }
+  },
 );
+

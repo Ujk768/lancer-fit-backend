@@ -17,7 +17,7 @@ const formatName = (firstName?: string, lastName?: string) => [firstName, lastNa
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, email, password, faculty, nationality } = req.body;
+    const { firstName, lastName, email, password, faculty, nationality, role} = req.body;
     const name = formatName(firstName, lastName);
 
     // Check if email already exists
@@ -25,9 +25,9 @@ export const registerUser = async (req: Request, res: Response) => {
     if (existing) {
       return res.status(409).json({ message: 'Email already in use' });
     }
-
+    
     const hashed = await hashPassword(password);
-    const user = await User.create({ firstName, lastName, email, password: hashed, faculty, nationality });
+    const user = await User.create({ firstName, lastName, email, password: hashed, faculty, nationality, role });
 
     const accessToken = generateAccessToken(user.userId, user.role);
     const refreshToken = generateRefreshToken(user.userId);

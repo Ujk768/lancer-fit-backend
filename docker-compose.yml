@@ -46,6 +46,9 @@ services:
           path: ./src
           target: /usr/src/app/src
         # Rebuild the image if package.json changes (new dependencies)
+          ignore:
+          - node_modules/
+          - "*.log"
         - action: rebuild
           path: ./package.json
         # Rebuild if package-lock.json changes too
