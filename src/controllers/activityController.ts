@@ -1,5 +1,8 @@
 import { Request, Response , NextFunction} from "express";
 import { Activity } from "../models/Activity";
+import { ActivityLog } from "../models/ActivityLog";
+import { sequelize } from "../config/database";
+import { User } from "../models/User";
 
 // - POST /activity/create
 
@@ -25,84 +28,70 @@ export const createActivity = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-// // ── PATCH /challenges/personal/:challengeId/complete ─────────────
-// export const completeActivity = async (req: Request, res: Response, next: NextFunction) => {
-//   try {
-//     const { userId } = req.user!;
-//     const { challengeId } = req.params;
-//     const { points } = req.body;
+export const awardActivityPoints = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const t = await sequelize.transaction();
 
-//     const challenge = await Activity.findOne({
-//       where: { challengeId, userId },
-//     });
+  try {
+    const userId = req.user!.userId;
+    const { activityId, unitsLogged } = req.body;
 
-//     if (!challenge) {
-//       return res.status(404).json({ message: 'Challenge not found or unauthorized' });
-//     }
+    if (unitsLogged == null || typeof unitsLogged !== "number" || unitsLogged <= 0) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "unitsLogged must be a positive number",
+      });
+    }
 
-//     if (challenge.status === 'completed') {
-//       return res.status(400).json({ message: 'Challenge already completed' });
-//     }
+    const activity = await Activity.findByPk(activityId, { transaction: t });
 
-//     await challenge.update({ status: 'completed', points: points || 0 });
+    if (!activity) {
+      await t.rollback();
+      return res.status(404).json({ success: false, message: "Activity not found" });
+    }
 
-//     res.status(200).json({ success: true, message: 'Challenge marked as completed', challenge });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
+    if (activity.pointsPerUnit == null) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Activity has no pointsPerUnit configured",
+      });
+    }
 
-// // ── POST /challenges/personal/:challengeId/claim-points ──────────
-// // This fills your empty placeholder function cleanly!
-// export const addActivityPoints = async (req: Request, res: Response, next: NextFunction) => {
-//   try {
-//     const { userId } = req.user!;
-//     const { challengeId } = req.params;
-//     const { pointsToAdd } = req.body; // Expecting increment value e.g., { "pointsToAdd": 15 }
+    const pointsEarned = unitsLogged * activity.pointsPerUnit;
 
-//     if (!pointsToAdd || pointsToAdd <= 0) {
-//       return res.status(400).json({ message: 'Please provide valid positive points to add.' });
-//     }
+    const log = await ActivityLog.create(
+      {
+        userId,
+        activityId,
+        date: new Date(),
+        unitsLogged,
+        pointsPerUnit: activity.pointsPerUnit, // snapshot at log time
+      },
+      { transaction: t },
+    );
 
-//     const challenge = await Activity.findOne({
-//       where: { challengeId, userId }
-//     });
+    await User.increment(
+      { totalXp: pointsEarned },
+      { where: { userId }, transaction: t },
+    );
 
-//     if (!challenge) {
-//       return res.status(404).json({ message: 'Personal challenge not found' });
-//     }
+    await t.commit();
 
-//     // Increment points safely on the instance
-//     const updatedPoints = challenge.points + Number(pointsToAdd);
-//     await challenge.update({ points: updatedPoints });
-
-//     res.status(200).json({
-//       success: true,
-//       message: `${pointsToAdd} points added successfully!`,
-//       currentTotal: updatedPoints
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
-
-// // ── GET /challenges/personal/me ──────────────────────────────────
-// export const getUserActivitys = async (req: Request, res: Response, next: NextFunction) => {
-//   try {
-//     const { userId } = req.user!;
-
-//     const challenges = await Activity.findAll({
-//       where: { userId },
-//       order: [['createdAt', 'DESC']],
-//     });
-
-//     const total = challenges.reduce((sum, c) => sum + c.pointsPerUnit * c.unitsPerChallenge, 0);
-
-//     res.status(200).json({
-//       challenges,
-//       totalPoints: total,
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
+    res.status(201).json({
+      success: true,
+      message: "Activity points awarded",
+      log: {
+        ...log.toJSON(),
+        pointsEarned,
+      },
+    });
+  } catch (err) {
+    await t.rollback();
+    next(err);
+  }
+};
