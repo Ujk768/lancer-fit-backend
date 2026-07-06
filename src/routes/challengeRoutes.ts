@@ -8,6 +8,7 @@ import {
   getAllChallenges,
   registerForChallenge,
   createChallenge,
+  submitChallengePoints
 } from "../controllers/challengeController";
 
 const router = Router();
@@ -15,7 +16,7 @@ const router = Router();
 // challnege routes for users/students
 router.get("/me", authenticate, getUserChallenges);
 
-router.post("/register", authenticate, registerForChallenge);
+router.post("/:challengeId/register", authenticate, registerForChallenge);
 
 router.get("/:challengeId/leaderboard", authenticate, getChallengeLeaderboard);
 
@@ -33,5 +34,7 @@ router.get("/active", getActiveChallenges);
 router.get("/all", getAllChallenges);
 
 router.post("/add", authenticate, authorize("admin"),createChallenge);
+
+router.post("/:challengeId/submit-points",authenticate,submitChallengePoints)
 
 export default router;

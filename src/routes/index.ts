@@ -15,7 +15,7 @@ router.use('/user',userRoutes)
 router.use('/badge',badgeRoutes)
 router.use('/activity',activityRoutes)
 router.use('/quest',questRoutes)
-router.use('/approve',approveRoutes)
+router.use('/participants',approveRoutes)
 
 
 export default router;
