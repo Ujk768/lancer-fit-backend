@@ -11,7 +11,7 @@ export const getAllBadges = async (req: Request, res: Response,next: NextFunctio
   try {
     // Fetch all records from the badges table
     const badges = await Badge.findAll();
-
+    
     // Respond with a 200 OK status and the data
     res.status(200).json({
       success: true,

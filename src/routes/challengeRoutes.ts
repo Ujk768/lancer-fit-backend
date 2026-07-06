@@ -1,35 +1,37 @@
-import { Router } from 'express';
-  // Checked your filename from earlier!
-import { authenticate, authorize } from '../middleware/auth';
+import { Router } from "express";
+import { authenticate, authorize } from "../middleware/auth";
 import {
-  registerForTLC,
-  getUserTLCChallenges,
-  getTLCLeaderboard,
-  awardTLCPoints,
-  getTLCParticipants,
-  getActiveTLCChallenges,
-  getAllTLCChallenges,
-} from '../controllers/challengeController';
+  getUserChallenges,
+  getChallengeLeaderboard,
+  getChallengeParticipants,
+  getActiveChallenges,
+  getAllChallenges,
+  registerForChallenge,
+  createChallenge,
+} from "../controllers/challengeController";
 
 const router = Router();
 
-// get user tlc challenges
-router.get('/me', authenticate, getUserTLCChallenges);
+// challnege routes for users/students
+router.get("/me", authenticate, getUserChallenges);
 
-// register to a tlc challenge
-router.post('/register', authenticate, registerForTLC);
+router.post("/register", authenticate, registerForChallenge);
 
-// get leaderboard for a specific tlc challenge
-router.get('/:challengeId/leaderboard', authenticate, getTLCLeaderboard);
+router.get("/:challengeId/leaderboard", authenticate, getChallengeLeaderboard);
 
-// get participants for a specific tlc challenge
-router.get('/:challengeId/participants', authenticate, authorize('admin'), getTLCParticipants);
+// challenge routes for admin
 
-// award points to a specific tlc challenge participant
-router.patch('/:challengeId/points', authenticate, authorize('admin'), awardTLCPoints);
+router.get(
+  "/:challengeId/participants",
+  authenticate,
+  authorize("admin"),
+  getChallengeParticipants,
+);
 
-router.get('/active',getActiveTLCChallenges)
+router.get("/active", getActiveChallenges);
 
-router.get('/all',getAllTLCChallenges)
+router.get("/all", getAllChallenges);
+
+router.post("/add", authenticate, authorize("admin"),createChallenge);
 
 export default router;

@@ -29,7 +29,7 @@ export const registerUser = async (req: Request, res: Response) => {
     const hashed = await hashPassword(password);
     const user = await User.create({ firstName, lastName, email, password: hashed, faculty, nationality, role });
 
-    const accessToken = generateAccessToken(user.userId, user.role);
+    const accessToken = generateAccessToken(user.userId, user.role,user.name);
     const refreshToken = generateRefreshToken(user.userId);
 
     res.status(201).json({
@@ -71,7 +71,7 @@ export const loginUser = async (req: Request, res: Response) => {
     }
 
     // Generate both tokens
-    const accessToken = generateAccessToken(user.userId, user.role);
+    const accessToken = generateAccessToken(user.userId, user.role,user.name);
     const refreshToken = generateRefreshToken(user.userId);
 
     res.status(200).json({
@@ -162,7 +162,7 @@ export const refresh = async (req: Request, res: Response) => {
     const user = await User.findByPk(decoded.userId);
     if (!user) return res.status(401).json({ message: 'User not found' });
 
-    const newAccessToken = generateAccessToken(user.userId, user.role);
+    const newAccessToken = generateAccessToken(user.userId, user.role,user.name);
 
     res.json({ accessToken: newAccessToken });
   } catch (err) {

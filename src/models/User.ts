@@ -32,6 +32,7 @@ export class User extends Model {
   declare role: string;
   declare nationality: string;
   declare faculty: string;
+  declare totalXp: number;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 }
@@ -80,6 +81,11 @@ User.init(
       allowNull: false,
       defaultValue: UserRole.STUDENT,
     },
+    totalXp: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      defaultValue: 0
+    }
   },
   {
     sequelize,

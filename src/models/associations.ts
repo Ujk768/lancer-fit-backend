@@ -1,23 +1,23 @@
 // src/models/associations.ts
 import { User } from "./User";
 import { UserStats } from "./UserStats";
-import { TLCChallenge } from "./Challenge";
-import { TLCChallengeParticipant } from "./Participant";
+import { Challenge } from "./Challenge";
+import { ChallengeParticipant } from "./ChallengeParticipant";
 import UserBadge from "./UserBadge";
 import Badge from "./Badges";
 import { Activity } from "./Activity";
 import { ActivityLog } from "./ActivityLog";
 
 export function defineAssociations() {
-  // ── M:N — User <-> TLCChallenge through the bridge ──────────────
-  User.belongsToMany(TLCChallenge, {
-    through: TLCChallengeParticipant, // the bridge model
+  // ── M:N — User <-> Challenge through the bridge ──────────────
+  User.belongsToMany(Challenge, {
+    through: ChallengeParticipant, // the bridge model
     foreignKey: "userId",
     otherKey: "challengeId",
     as: "tlcChallenges", // alias for include queries
   });
 
-  User.hasMany(TLCChallengeParticipant, {
+  User.hasMany(ChallengeParticipant, {
     foreignKey: "userId",
     as: "participations",
   });
@@ -41,21 +41,21 @@ export function defineAssociations() {
     as: "badges", // Allows: user.badges to get all badges earned by a user
   });
 
-  TLCChallenge.belongsToMany(User, {
-    through: TLCChallengeParticipant,
+  Challenge.belongsToMany(User, {
+    through: ChallengeParticipant,
     foreignKey: "challengeId",
     otherKey: "userId",
     as: "participants",
   });
 
   // ── Bridge associations — lets you do participant.user etc ───────
-  TLCChallengeParticipant.belongsTo(User, { foreignKey: "userId", as: "user" });
-  TLCChallengeParticipant.belongsTo(TLCChallenge, {
+  ChallengeParticipant.belongsTo(User, { foreignKey: "userId", as: "user" });
+  ChallengeParticipant.belongsTo(Challenge, {
     foreignKey: "challengeId",
     as: "challenge",
   });
 
-  TLCChallenge.hasMany(TLCChallengeParticipant, {
+  Challenge.hasMany(ChallengeParticipant, {
     foreignKey: "challengeId",
     as: "participations",
   });

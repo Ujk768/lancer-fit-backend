@@ -5,8 +5,8 @@ const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET!;
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET!;
 // two different secrets — a refresh token can't be used as an access token
 
-export const generateAccessToken = (userId: number, role: string) => {
-  return jwt.sign({ userId, role }, ACCESS_SECRET, { expiresIn: '15m' });
+export const generateAccessToken = (userId: number, role: string, name: string) => {
+  return jwt.sign({ userId, role, name }, ACCESS_SECRET, { expiresIn: '15m' });
 };
 
 export const generateRefreshToken = (userId: number) => {
