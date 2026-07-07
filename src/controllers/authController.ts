@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { hashPassword, verifyPassword } from "../utils/password";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "../utils/jwt";
 import { User } from "../models/User";
+import { RefreshToken } from "../models/RefreshToken";
 
 type ResetTokenRecord = {
   userId: number;
@@ -14,10 +15,37 @@ const passwordResetTokens = new Map<string, ResetTokenRecord>();
 
 const formatName = (firstName?: string, lastName?: string) => [firstName, lastName].filter(Boolean).join(' ').trim();
 
+// We store a hash of the refresh token rather than the raw token, so a DB
+// read/leak alone can't be used to impersonate a session.
+const hashToken = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
+
+// Pulls the JWT's real expiry out so the DB row expires at the same time
+// the token itself would, rather than guessing/duplicating the TTL here.
+const getTokenExpiry = (token: string): Date => {
+  const decoded = jwt_decode(token);
+  return new Date(decoded.exp * 1000);
+};
+
+// Minimal decode helper (no verification) just to read `exp` for storage.
+import jwt from 'jsonwebtoken';
+const jwt_decode = (token: string) => jwt.decode(token) as { exp: number; userId: number };
+
+const issueRefreshToken = async (userId: number) => {
+  const refreshToken = generateRefreshToken(userId);
+  const { exp } = jwt_decode(refreshToken);
+
+  await RefreshToken.create({
+    userId,
+    tokenHash: hashToken(refreshToken),
+    expiresAt: new Date(exp * 1000),
+  });
+
+  return refreshToken;
+};
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, email, password, faculty, nationality, role} = req.body;
+    const { firstName, lastName, email, password, faculty, nationality, role } = req.body;
     const name = formatName(firstName, lastName);
 
     // Check if email already exists
@@ -25,12 +53,12 @@ export const registerUser = async (req: Request, res: Response) => {
     if (existing) {
       return res.status(409).json({ message: 'Email already in use' });
     }
-    
+
     const hashed = await hashPassword(password);
     const user = await User.create({ firstName, lastName, email, password: hashed, faculty, nationality, role });
 
-    const accessToken = generateAccessToken(user.userId, user.role,user.name);
-    const refreshToken = generateRefreshToken(user.userId);
+    const accessToken = generateAccessToken(user.userId, user.role, name);
+    const refreshToken = await issueRefreshToken(user.userId);
 
     res.status(201).json({
       message: 'User created successfully',
@@ -70,9 +98,11 @@ export const loginUser = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
+    const name = formatName(user.firstName, user.lastName);
+
     // Generate both tokens
-    const accessToken = generateAccessToken(user.userId, user.role,user.name);
-    const refreshToken = generateRefreshToken(user.userId);
+    const accessToken = generateAccessToken(user.userId, user.role, name);
+    const refreshToken = await issueRefreshToken(user.userId);
 
     res.status(200).json({
       message: 'Login successful',
@@ -82,7 +112,7 @@ export const loginUser = async (req: Request, res: Response) => {
         userId: user.userId,
         firstName: user.firstName,
         lastName: user.lastName,
-        name: formatName(user.firstName, user.lastName),
+        name,
         email: user.email,
         faculty: user.faculty,
         nationality: user.nationality,
@@ -146,6 +176,14 @@ export const resetPassword = async (req: Request, res: Response) => {
     await user.save();
     passwordResetTokens.delete(token);
 
+    // Password was compromised or user wants a clean slate — kill every
+    // existing session so old refresh tokens can't keep the old password's
+    // login alive.
+    await RefreshToken.update(
+      { revokedAt: new Date() },
+      { where: { userId: user.userId, revokedAt: null } }
+    );
+
     return res.status(200).json({ message: 'Password updated successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Error resetting password', error: err });
@@ -159,14 +197,41 @@ export const refresh = async (req: Request, res: Response) => {
   try {
     const decoded = verifyRefreshToken(refreshToken) as { userId: number };
 
+    const record = await RefreshToken.findOne({
+      where: { tokenHash: hashToken(refreshToken) },
+    });
+
+    if (!record || record.revokedAt || record.expiresAt < new Date()) {
+      return res.status(401).json({ message: 'Session expired, please log in again' });
+    }
+
     const user = await User.findByPk(decoded.userId);
     if (!user) return res.status(401).json({ message: 'User not found' });
 
-    const newAccessToken = generateAccessToken(user.userId, user.role,user.name);
+    const name = formatName(user.firstName, user.lastName);
+    const newAccessToken = generateAccessToken(user.userId, user.role, name);
 
     res.json({ accessToken: newAccessToken });
   } catch (err) {
     // refresh token expired or invalid → user must log in again
     res.status(401).json({ message: 'Session expired, please log in again' });
+  }
+};
+
+export const logoutUser = async (req: Request, res: Response) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(400).json({ message: 'Refresh token required' });
+    }
+
+    await RefreshToken.update(
+      { revokedAt: new Date() },
+      { where: { tokenHash: hashToken(refreshToken) } }
+    );
+
+    return res.status(200).json({ message: 'Logged out successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error logging out', error: err });
   }
 };

@@ -17,6 +17,7 @@ export class Challenge extends Model {
   public instructorName!: string;
   public challengeUnit!: string; // e.g pushups / lap
   public pointsPerUnit!: number; // points per pushup / lap
+  public category!: string
 }
 
 /***
@@ -56,6 +57,7 @@ Challenge.init(
     instructorName: { type: DataTypes.STRING, allowNull: false },
     challengeUnit: { type: DataTypes.STRING, allowNull: false },
     pointsPerUnit: { type: DataTypes.INTEGER, allowNull: false },
+    category: { type: DataTypes.STRING, allowNull: false },
   },
   {
     sequelize,

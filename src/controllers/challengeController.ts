@@ -183,6 +183,7 @@ export const createChallenge = async (
       instructorName,
       challengeUnit,
       pointsPerUnit,
+      category
     } = req.body;
     const challenge = await Challenge.create({
       challengeName,
@@ -195,6 +196,7 @@ export const createChallenge = async (
       instructorName,
       challengeUnit,
       pointsPerUnit,
+      category
     });
     res.status(201).json({ success: true, challenge });
   } catch (err) {
@@ -271,3 +273,22 @@ export const submitChallengePoints = async (
     next(err);
   }
 };
+
+
+export const getChallengesByCategory = async (req:Request,res:Response, next:NextFunction)=>{
+  try{
+    const {category} = req.body
+    const challenges = await Challenge.findAll({
+      where: {
+        category: category,
+      },
+      order: [["startDate", "ASC"]],
+    });
+    res.status(200).json({
+      success:true,
+      challenges
+    })
+  }catch(err){
+    next(err);
+  }
+}

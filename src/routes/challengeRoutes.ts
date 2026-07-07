@@ -8,7 +8,8 @@ import {
   getAllChallenges,
   registerForChallenge,
   createChallenge,
-  submitChallengePoints
+  submitChallengePoints,
+  getChallengesByCategory
 } from "../controllers/challengeController";
 
 const router = Router();
@@ -19,6 +20,8 @@ router.get("/me", authenticate, getUserChallenges);
 router.post("/:challengeId/register", authenticate, registerForChallenge);
 
 router.get("/:challengeId/leaderboard", authenticate, getChallengeLeaderboard);
+
+router.post("/category",authenticate,getChallengesByCategory);
 
 // challenge routes for admin
 
