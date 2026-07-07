@@ -8,9 +8,9 @@ import { forgotPassword, loginUser, logoutUser, refresh, registerUser, resetPass
 const router = Router();
 router.post("/register", validate(signupSchema), registerUser);
 router.post("/login", validate(loginSchema), loginUser);
-router.post("/forgot-password", validate(forgotPasswordSchema), forgotPassword);
-router.post("/reset-password", validate(resetPasswordSchema), resetPassword);
-router.post("/refresh-token", refresh);
+router.post("/forgot", validate(forgotPasswordSchema), forgotPassword);
+router.post("/reset", validate(resetPasswordSchema), resetPassword);
+router.post("/refresh", refresh);
 router.post("/logout", logoutUser); // good to add alongside it
 
 export default router;
