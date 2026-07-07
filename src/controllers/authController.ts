@@ -36,7 +36,7 @@ const issueRefreshToken = async (userId: number) => {
 
   await RefreshToken.create({
     userId,
-    tokenHash: hashToken(refreshToken),
+    token: hashToken(refreshToken),
     expiresAt: new Date(exp * 1000),
   });
 
@@ -198,7 +198,7 @@ export const refresh = async (req: Request, res: Response) => {
     const decoded = verifyRefreshToken(refreshToken) as { userId: number };
 
     const record = await RefreshToken.findOne({
-      where: { tokenHash: hashToken(refreshToken) },
+      where: { token: hashToken(refreshToken) },
     });
 
     if (!record || record.revokedAt || record.expiresAt < new Date()) {
@@ -227,7 +227,7 @@ export const logoutUser = async (req: Request, res: Response) => {
 
     await RefreshToken.update(
       { revokedAt: new Date() },
-      { where: { tokenHash: hashToken(refreshToken) } }
+      { where: { token: hashToken(refreshToken) } }
     );
 
     return res.status(200).json({ message: 'Logged out successfully' });

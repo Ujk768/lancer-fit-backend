@@ -57,7 +57,7 @@ Challenge.init(
     instructorName: { type: DataTypes.STRING, allowNull: false },
     challengeUnit: { type: DataTypes.STRING, allowNull: false },
     pointsPerUnit: { type: DataTypes.INTEGER, allowNull: false },
-    category: { type: DataTypes.STRING, allowNull: false },
+    category: { type: DataTypes.STRING, allowNull: true },
   },
   {
     sequelize,
