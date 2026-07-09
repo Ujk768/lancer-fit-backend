@@ -1,14 +1,10 @@
-import Router from "express";
-import { awardActivityPoints, createActivity } from "../controllers/activityController";
-import { authenticate } from "../middleware/auth";
-import { getUserChallenges } from "../controllers/challengeController";
+// src/routes/activityRoutes.ts
+import { Router } from "express";
+import { authenticate, authorize } from "../middleware/auth";
+import { getAllActivities, createActivity, awardActivityPoints } from "../controllers/activityController";
 
 const router = Router();
-
-
-router.post("/create",authenticate,createActivity)
-router.get("/all",authenticate,getUserChallenges)
-router.post("/:activityid/award-points",authenticate,awardActivityPoints)
-
-
+router.get("/all", authenticate, getAllActivities);
+router.post("/create", authenticate, authorize("admin"), createActivity);
+router.post("/:activityId/award-points", authenticate, awardActivityPoints);
 export default router;

@@ -7,74 +7,45 @@ import UserBadge from "./UserBadge";
 import Badge from "./Badges";
 import { Activity } from "./Activity";
 import { ActivityLog } from "./ActivityLog";
+import { ExerciseSession } from "./ExerciseSession";
+import { ActivityArea } from "./ActivityArea";
+import { ActivitySubActivity } from "./ActivitySubActivity";
 
 export function defineAssociations() {
-  // ── M:N — User <-> Challenge through the bridge ──────────────
   User.belongsToMany(Challenge, {
-    through: ChallengeParticipant, // the bridge model
-    foreignKey: "userId",
-    otherKey: "challengeId",
-    as: "tlcChallenges", // alias for include queries
+    through: ChallengeParticipant, foreignKey: "userId",
+    otherKey: "challengeId", as: "tlcChallenges",
+  });
+  Challenge.belongsToMany(User, {
+    through: ChallengeParticipant, foreignKey: "challengeId",
+    otherKey: "userId", as: "participants",
   });
 
-  User.hasMany(ChallengeParticipant, {
-    foreignKey: "userId",
-    as: "participations",
-  });
+  User.hasMany(ChallengeParticipant, { foreignKey: "userId", as: "participations" });
+  Challenge.hasMany(ChallengeParticipant, { foreignKey: "challengeId", as: "participations" });
+  ChallengeParticipant.belongsTo(User, { foreignKey: "userId", as: "user" });
+  ChallengeParticipant.belongsTo(Challenge, { foreignKey: "challengeId", as: "challenge" });
 
-  UserStats.belongsTo(User, {
-    foreignKey: "userId",
-    as: "user",
-  });
-
-  // ── 1:M — User -> Activity ──────────────────────────────────────
-  User.hasMany(Activity, {
-    foreignKey: "userId",
-    as: "activities",
-    onDelete: "CASCADE",
-  });
+  UserStats.belongsTo(User, { foreignKey: "userId", as: "user" });
+  User.hasOne(UserStats, { foreignKey: "userId", as: "stats" });
 
   User.belongsToMany(Badge, {
-    through: UserBadge,
-    foreignKey: "userId",
-    otherKey: "badgeId",
-    as: "badges", // Allows: user.badges to get all badges earned by a user
+    through: UserBadge, foreignKey: "userId", otherKey: "badgeId", as: "badges",
   });
-
-  Challenge.belongsToMany(User, {
-    through: ChallengeParticipant,
-    foreignKey: "challengeId",
-    otherKey: "userId",
-    as: "participants",
-  });
-
-  // ── Bridge associations — lets you do participant.user etc ───────
-  ChallengeParticipant.belongsTo(User, { foreignKey: "userId", as: "user" });
-  ChallengeParticipant.belongsTo(Challenge, {
-    foreignKey: "challengeId",
-    as: "challenge",
-  });
-
-  Challenge.hasMany(ChallengeParticipant, {
-    foreignKey: "challengeId",
-    as: "participations",
-  });
-
-  Activity.belongsTo(User, {
-    foreignKey: "userId",
-    as: "user",
-  });
-
   Badge.belongsToMany(User, {
-    through: UserBadge,
-    foreignKey: "badgeId",
-    otherKey: "userId",
-    as: "owners", // Allows: badge.owners to see all users who earned this badge
+    through: UserBadge, foreignKey: "badgeId", otherKey: "userId", as: "owners",
   });
 
   User.hasMany(ActivityLog, { foreignKey: "userId" });
   ActivityLog.belongsTo(User, { foreignKey: "userId" });
-
   Activity.hasMany(ActivityLog, { foreignKey: "activityId" });
   ActivityLog.belongsTo(Activity, { foreignKey: "activityId" });
+
+  User.hasMany(ExerciseSession, { foreignKey: "userId", as: "sessions" });
+  ExerciseSession.belongsTo(User, { foreignKey: "userId", as: "user" });
+  Activity.hasMany(ExerciseSession, { foreignKey: "activityId" });
+  ExerciseSession.belongsTo(Activity, { foreignKey: "activityId" });
+
+  ActivityArea.hasMany(ActivitySubActivity, { foreignKey: "areaId", as: "subs", onDelete: "CASCADE" });
+  ActivitySubActivity.belongsTo(ActivityArea, { foreignKey: "areaId", as: "area" });
 }
