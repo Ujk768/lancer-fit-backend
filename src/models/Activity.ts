@@ -8,6 +8,7 @@ export class Activity extends Model {
   declare activityDescription: string;
   declare units: string;          // label, e.g. "km", "reps"
   declare pointsPerUnit: number;  // current/default rate
+  declare category: string;
 }
 
 Activity.init(
@@ -17,11 +18,12 @@ Activity.init(
       primaryKey: true,
       autoIncrement: true,
     },
-    activityName: { type: DataTypes.STRING, allowNull: false },
+    activityName: { type: DataTypes.STRING, allowNull: true },
     activityImage: { type: DataTypes.STRING, allowNull: true },
     activityDescription: { type: DataTypes.TEXT, allowNull: false },
     units: { type: DataTypes.STRING, allowNull: false },
     pointsPerUnit: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    category: { type: DataTypes.STRING, allowNull: true },
   },
   {
     sequelize,

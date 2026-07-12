@@ -10,8 +10,7 @@ export const registerForChallenge = async (
 ) => {
   try {
     const { userId } = req.user!;
-    const { challengeId  } = req.params;
-    console.log("challege",challengeId)
+    const { challengeId } = req.params;
     const challenge = await Challenge.findByPk(challengeId as string);
     if (!challenge) {
       return res.status(404).json({ message: "Challenge not found" });
@@ -121,7 +120,7 @@ export const getChallengeParticipants = async (
         {
           model: User,
           as: "user",
-          attributes: ["userId", "name", "email", "profileImage", "points"],
+          attributes: ["userId", "firstName","lastName", "email", "totalXp"],
         },
       ],
       order: [["createdAt", "ASC"]],
@@ -183,7 +182,7 @@ export const createChallenge = async (
       instructorName,
       challengeUnit,
       pointsPerUnit,
-      category
+      category,
     } = req.body;
     const challenge = await Challenge.create({
       challengeName,
@@ -196,7 +195,7 @@ export const createChallenge = async (
       instructorName,
       challengeUnit,
       pointsPerUnit,
-      category
+      category,
     });
     res.status(201).json({ success: true, challenge });
   } catch (err) {
@@ -214,7 +213,7 @@ export const submitChallengePoints = async (
     const { pointsSubmitted } = req.body;
     const userId = req.user!.userId;
     // basic input validation
-    if (pointsSubmitted == null ||  +pointsSubmitted <= 0) {
+    if (pointsSubmitted == null || +pointsSubmitted <= 0) {
       return res.status(400).json({
         success: false,
         message: "pointsSubmitted must be a positive number",
@@ -223,7 +222,9 @@ export const submitChallengePoints = async (
 
     const challenge = await Challenge.findByPk(challengeId as string);
     if (!challenge) {
-      return res.status(404).json({ success: false, message: "Challenge not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Challenge not found" });
     }
 
     if (challenge.status !== "active") {
@@ -274,10 +275,13 @@ export const submitChallengePoints = async (
   }
 };
 
-
-export const getChallengesByCategory = async (req:Request,res:Response, next:NextFunction)=>{
-  try{
-    const {category} = req.body
+export const getChallengesByCategory = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { category } = req.body;
     const challenges = await Challenge.findAll({
       where: {
         category: category,
@@ -285,10 +289,48 @@ export const getChallengesByCategory = async (req:Request,res:Response, next:Nex
       order: [["startDate", "ASC"]],
     });
     res.status(200).json({
-      success:true,
-      challenges
+      success: true,
+      challenges,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getPendingChallenges = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const pending = await Challenge.findAll({
+      where: {
+        status: "pending",
+      },
+    });
+    res.status(200).json({
+      success: true,
+      pending,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getChallengeById = async(req:Request,res:Response,next:NextFunction)=>{
+  try{
+    const {challengeId} = req.params;
+    const challenge = await Challenge.findByPk(challengeId as string)
+    if (!challenge) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Challenge not found" });
+    }
+    return res.status(200).json({
+      success: true,
+      challenge
     })
   }catch(err){
-    next(err);
+    next(err)
   }
 }

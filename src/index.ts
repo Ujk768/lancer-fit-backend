@@ -9,7 +9,11 @@ import { errorHandler } from "./middleware/errorHandler";
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173', // your Vite dev server's actual port
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'] // only if you actually need cookies
+}    ));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -30,7 +34,7 @@ async function start() {
     console.log("Database connected successfully.");
     // ensure models are synced (creates tables if they don't exist)
     defineAssociations();
-    await sequelize.sync({ alter: true });
+    await sequelize.sync({ alter: true  });
 
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);

@@ -8,21 +8,18 @@ import { User } from "../models/User";
 
 export const createActivity = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { userId } = req.user!;
-    const { ActivityName, ActivityDescription, startDate, endDate, unitsPerChallenge, pointsPerUnit } = req.body;
+    const { activityName, activityDescription, units, pointsPerUnit, category, activityImage } = req.body;
 
-    const challenge = await Activity.create({
-      userId,
-      ActivityName,
-      ActivityDescription,
-      startDate,
-      endDate,
-      status: 'active',
-      unitsPerChallenge,
+    const activity = await Activity.create({
+      activityName,
+      activityDescription,
+      units,
       pointsPerUnit,
+      category,
+      activityImage,
     });
 
-    res.status(201).json({ success: true, message: 'Personal challenge created', challenge });
+    res.status(201).json({ success: true, message: 'Activity created', activity });
   } catch (err) {
     next(err);
   }
@@ -37,7 +34,8 @@ export const awardActivityPoints = async (
 
   try {
     const userId = req.user!.userId;
-    const { activityId, unitsLogged } = req.body;
+    const { activityid } = req.params; // matches route's :activityid
+    const { unitsLogged } = req.body;
 
     if (unitsLogged == null || typeof unitsLogged !== "number" || unitsLogged <= 0) {
       await t.rollback();
@@ -47,7 +45,7 @@ export const awardActivityPoints = async (
       });
     }
 
-    const activity = await Activity.findByPk(activityId, { transaction: t });
+    const activity = await Activity.findByPk(activityid as string, { transaction: t });
 
     if (!activity) {
       await t.rollback();
@@ -67,7 +65,7 @@ export const awardActivityPoints = async (
     const log = await ActivityLog.create(
       {
         userId,
-        activityId,
+        activityId: activityid,
         date: new Date(),
         unitsLogged,
         pointsPerUnit: activity.pointsPerUnit, // snapshot at log time
@@ -95,3 +93,15 @@ export const awardActivityPoints = async (
     next(err);
   }
 };
+
+export const getAllActivities = async(req:Request,res:Response,next:NextFunction)=>{
+  try{
+    const activities = await Activity.findAll();
+    return res.status(200).json({
+      success:true,
+      activities
+    })
+  }catch(err){
+    next(err)
+  }
+}

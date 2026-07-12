@@ -1,13 +1,13 @@
-import Router from "express";
-import { awardActivityPoints, createActivity } from "../controllers/activityController";
+import {Router} from "express";
+import { awardActivityPoints, createActivity, getAllActivities } from "../controllers/activityController";
 import { authenticate } from "../middleware/auth";
-import { getUserChallenges } from "../controllers/challengeController";
 
 const router = Router();
+console.log("DEBUG:", { authenticate, createActivity, getAllActivities, awardActivityPoints });
 
 
 router.post("/create",authenticate,createActivity)
-router.get("/all",authenticate,getUserChallenges)
+router.get("/all",authenticate,getAllActivities)
 router.post("/:activityid/award-points",authenticate,awardActivityPoints)
 
 

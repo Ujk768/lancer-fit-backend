@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticate, authorize } from "../middleware/auth";
+import { authenticate,authorize } from "../middleware/auth";
 import {
   getUserChallenges,
   getChallengeLeaderboard,
@@ -9,7 +9,9 @@ import {
   registerForChallenge,
   createChallenge,
   submitChallengePoints,
-  getChallengesByCategory
+  getChallengesByCategory,
+  getPendingChallenges,
+  getChallengeById
 } from "../controllers/challengeController";
 
 const router = Router();
@@ -39,5 +41,9 @@ router.get("/all", getAllChallenges);
 router.post("/add", authenticate, authorize("admin"),createChallenge);
 
 router.post("/:challengeId/submit-points",authenticate,submitChallengePoints)
+
+router.get("/pending",authenticate,getPendingChallenges)
+
+router.get("/:challengeId",authenticate,getChallengeById)
 
 export default router;
