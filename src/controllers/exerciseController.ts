@@ -9,6 +9,7 @@ import { serializeSession } from "../utils/serializers";
 import { emit } from "../realtime/io";
 
 export const logExercise = asyncHandler(async (req: Request, res: Response) => {
+   console.log("LOG EXERCISE HIT2");
   const userId = req.user!.userId;
   const {
     exerciseKey, exerciseName, areaKey = null, activityId = null,
