@@ -50,7 +50,6 @@ function validatePerformedAt(performedAt?: string): { when: Date; error?: string
 
 // POST /api/exercise/log
 export const logExercise = asyncHandler(async (req: Request, res: Response) => {
-   console.log("LOG EXERCISE HIT2");
   const userId = req.user!.userId;
   const {
     exerciseKey,
