@@ -4,9 +4,10 @@ import { sequelize } from "../config/database";
 export class Quest extends Model {
   declare questId: number;
   declare title: string;
-  declare xp: number;
+  declare description: string;
+  declare points: number;
   declare category: string;
-  declare isActive: boolean
+  declare isActive: boolean;
 }
 
 
@@ -21,7 +22,11 @@ Quest.init(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    xp: {
+    description: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    points: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
@@ -44,4 +49,3 @@ Quest.init(
     underscored: false,
   },
 );
-

@@ -21,8 +21,8 @@ export const activateQuest = async (
   next: NextFunction,
 ) => {
   try {
-    const { questId } = req.body;
-    const quest = await Quest.findByPk(questId);
+    const { questId } = req.params;
+    const quest = await Quest.findByPk(questId as string);
     if (!quest) {
       return res
         .status(404)
@@ -111,6 +111,31 @@ export const getActiveQuests = async (
     res.status(200).json({
       success: true,
       quests,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deactivateQuest = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { questId } = req.params;
+    const quest = await Quest.findByPk(questId as string);
+    if (!quest) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Quest not found" });
+    }
+    quest.isActive = false;
+    await quest.save();
+    return res.status(200).json({
+      success: true,
+      data: quest,
+      message: "Quest DeActivated",
     });
   } catch (err) {
     next(err);

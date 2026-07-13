@@ -9,7 +9,7 @@ export class Badge extends Model {
   declare badgeDescription: string;
   declare completionCriteria: number;
   declare awardXpValue: number;
-  declare secret: boolean;
+  declare secret: boolean;     
 }
 
 Badge.init(

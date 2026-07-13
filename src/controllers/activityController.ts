@@ -1,30 +1,29 @@
 // src/controllers/activityController.ts
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import { Activity } from "../models/Activity";
 import { ActivityLog } from "../models/ActivityLog";
 import { sequelize } from "../config/database";
 import { User } from "../models/User";
 import { asyncHandler } from "../utils/asyncHandler";
 
-export const getAllActivities = asyncHandler(async (_req: Request, res: Response) => {
-  const activities = await Activity.findAll({ order: [["activityName", "ASC"]] });
-  res.status(200).json({ success: true, activities });
-});
+export const createActivity = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { activityName, activityDescription, units, pointsPerUnit, category, activityImage } = req.body;
 
-export const createActivity = asyncHandler(async (req: Request, res: Response) => {
-  const { activityName, activityDescription, activityImage, units, pointsPerUnit } = req.body;
-  if (!activityName?.trim() || !units?.trim()) {
-    return res.status(400).json({ success: false, message: "activityName and units are required" });
+    const activity = await Activity.create({
+      activityName,
+      activityDescription,
+      units,
+      pointsPerUnit,
+      category,
+      activityImage,
+    });
+
+    res.status(201).json({ success: true, message: 'Activity created', activity });
+  } catch (err) {
+    next(err);
   }
-  const activity = await Activity.create({
-    activityName: activityName.trim(),
-    activityDescription: activityDescription ?? "",
-    activityImage: activityImage ?? null,
-    units: units.trim(),
-    pointsPerUnit: Number(pointsPerUnit) || 0,
-  });
-  res.status(201).json({ success: true, activity });
-});
+};
 
 export const awardActivityPoints = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.userId;
@@ -35,14 +34,33 @@ export const awardActivityPoints = asyncHandler(async (req: Request, res: Respon
   }
   const t = await sequelize.transaction();
   try {
-    const activity = await Activity.findByPk(activityId, { transaction: t });
+    const userId = req.user!.userId;
+    const { activityid } = req.params; // matches route's :activityid
+    const { unitsLogged } = req.body;
+
+    if (unitsLogged == null || typeof unitsLogged !== "number" || unitsLogged <= 0) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "unitsLogged must be a positive number",
+      });
+    }
+
+    const activity = await Activity.findByPk(activityid as string, { transaction: t });
+
     if (!activity) {
       await t.rollback();
       return res.status(404).json({ success: false, message: "Activity not found" });
     }
     const pointsEarned = unitsLogged * activity.pointsPerUnit;
     const log = await ActivityLog.create(
-      { userId, activityId, date: new Date(), unitsLogged, pointsPerUnit: activity.pointsPerUnit },
+      {
+        userId,
+        activityId: activityid,
+        date: new Date(),
+        unitsLogged,
+        pointsPerUnit: activity.pointsPerUnit, // snapshot at log time
+      },
       { transaction: t },
     );
     await User.increment({ totalXp: pointsEarned }, { where: { userId }, transaction: t });
@@ -53,3 +71,15 @@ export const awardActivityPoints = asyncHandler(async (req: Request, res: Respon
     throw err;
   }
 });
+
+export const getAllActivities = async(req:Request,res:Response,next:NextFunction)=>{
+  try{
+    const activities = await Activity.findAll();
+    return res.status(200).json({
+      success:true,
+      activities
+    })
+  }catch(err){
+    next(err)
+  }
+}

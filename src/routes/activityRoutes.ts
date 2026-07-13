@@ -1,10 +1,14 @@
-// src/routes/activityRoutes.ts
-import { Router } from "express";
-import { authenticate, authorize } from "../middleware/auth";
-import { getAllActivities, createActivity, awardActivityPoints } from "../controllers/activityController";
+import {Router} from "express";
+import { awardActivityPoints, createActivity, getAllActivities } from "../controllers/activityController";
+import { authenticate } from "../middleware/auth";
 
 const router = Router();
-router.get("/all", authenticate, getAllActivities);
-router.post("/create", authenticate, authorize("admin"), createActivity);
-router.post("/:activityId/award-points", authenticate, awardActivityPoints);
+console.log("DEBUG:", { authenticate, createActivity, getAllActivities, awardActivityPoints });
+
+
+router.post("/create",authenticate,createActivity)
+router.get("/all",authenticate,getAllActivities)
+router.post("/:activityid/award-points",authenticate,awardActivityPoints)
+
+
 export default router;
