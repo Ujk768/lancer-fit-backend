@@ -18,7 +18,16 @@ export const registerForChallenge = asyncHandler(async (req: Request, res: Respo
     userId, challengeId, status: "pending", pointsSubmitted: 0, pointsAwarded: 0,
   });
   await challenge.increment("participantsCount");
+  await challenge.reload();
+
+  // Notify admins (someone joined) AND everyone viewing the challenge list so
+  // the "N Lancers joined" counter updates live on both the admin and mobile UIs.
   emit.toAllAdmins("challenge:joined", { challengeId: Number(challengeId), userId });
+  emit.toEveryone("challenge:participants", {
+    challengeId: Number(challengeId),
+    participants: challenge.participantsCount,
+  });
+
   res.status(201).json({ success: true, message: "Registered for challenge", participant });
 });
 
@@ -45,17 +54,44 @@ export const getActiveChallenges = asyncHandler(async (_req: Request, res: Respo
   res.status(200).json({ success: true, challenges: rows.map(serializeChallenge) });
 });
 
+// GET /challenge/pending — challenges awaiting the admin's attention.
+// A challenge is "pending" review when it has at least one participant who has
+// submitted points but hasn't been approved/rejected yet.
+export const getPendingChallenges = asyncHandler(async (_req: Request, res: Response) => {
+  const pendingParts = await ChallengeParticipant.findAll({
+    where: { status: "pending" },
+    include: [{ model: Challenge, as: "challenge" }],
+  });
+  const seen = new Map<number, Challenge>();
+  for (const p of pendingParts) {
+    if (p.submitted_at && p.pointsSubmitted > 0) {
+      const c = p.get("challenge") as Challenge;
+      if (c) seen.set(c.challengeId, c);
+    }
+  }
+  const pending = [...seen.values()].map(serializeChallenge);
+  res.status(200).json({ success: true, pending });
+});
+
 export const getChallengesByCategory = asyncHandler(async (req: Request, res: Response) => {
   const { category } = req.body;
   const rows = await Challenge.findAll({ where: { category }, order: [["startDate", "ASC"]] });
   res.status(200).json({ success: true, challenges: rows.map(serializeChallenge) });
 });
 
+// GET /challenge/:challengeId — one challenge by id (used by the admin detail view).
+export const getChallengeById = asyncHandler(async (req: Request, res: Response) => {
+  const { challengeId } = req.params;
+  const challenge = await Challenge.findByPk(String(challengeId));
+  if (!challenge) return res.status(404).json({ success: false, message: "Challenge not found" });
+  res.status(200).json({ success: true, challenge: serializeChallenge(challenge) });
+});
+
 export const getChallengeLeaderboard = asyncHandler(async (req: Request, res: Response) => {
   const { challengeId } = req.params;
   const rows = await ChallengeParticipant.findAll({
     where: { challengeId, status: "approved" },
-    include: [{ model: User, as: "user", attributes: ["userId", "firstName", "lastName"] }],
+    include: [{ model: User, as: "user", attributes: ["userId", "firstName", "lastName", "faculty", "nationality", "totalXp"] }],
     order: [["pointsAwarded", "DESC"]],
   });
   const leaderboard = rows.map((entry, index) => ({
@@ -68,7 +104,7 @@ export const getChallengeParticipants = asyncHandler(async (req: Request, res: R
   const { challengeId } = req.params;
   const rows = await ChallengeParticipant.findAll({
     where: { challengeId },
-    include: [{ model: User, as: "user", attributes: ["userId", "firstName", "lastName", "email"] }],
+    include: [{ model: User, as: "user", attributes: ["userId", "firstName", "lastName", "email", "faculty", "nationality", "totalXp"] }],
     order: [["createdAt", "ASC"]],
   });
   const participants = rows.map((p) => ({
@@ -88,10 +124,10 @@ export const createChallenge = asyncHandler(async (req: Request, res: Response) 
     startDate: b.startDate, endDate: b.endDate, status: b.status ?? "active",
     venue: b.venue ?? null, instructorName: b.instructorName ?? null,
     challengeUnit: b.unit ?? b.challengeUnit, pointsPerUnit: b.pointsPerUnit ?? 0,
-    category: b.category ?? b.type ?? null, type: b.type ?? null, goal: b.goal ?? 0,
+    category: b.category ?? b.type ?? null, type: b.type ?? b.category ?? null, goal: b.goal ?? 0,
     xpReward: b.xpReward ?? b.podium?.first ?? 0,
     podiumFirst: b.podium?.first ?? 500, podiumSecond: b.podium?.second ?? 300, podiumThird: b.podium?.third ?? 150,
-    requiresValidation: !!b.requiresValidation,
+    requiresValidation: b.requiresValidation == null ? true : !!b.requiresValidation,
     createdBy: b.createdBy ?? req.user?.name ?? "Administrator", participantsCount: 0,
   });
   const payload = serializeChallenge(challenge);
