@@ -1,10 +1,10 @@
-import { Request, Response , NextFunction} from "express";
+// src/controllers/activityController.ts
+import { Request, Response, NextFunction } from "express";
 import { Activity } from "../models/Activity";
 import { ActivityLog } from "../models/ActivityLog";
 import { sequelize } from "../config/database";
 import { User } from "../models/User";
-
-// - POST /activity/create
+import { asyncHandler } from "../utils/asyncHandler";
 
 export const createActivity = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -25,13 +25,14 @@ export const createActivity = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-export const awardActivityPoints = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+export const awardActivityPoints = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const activityId = Number(req.params.activityId);
+  const { unitsLogged } = req.body;
+  if (unitsLogged == null || typeof unitsLogged !== "number" || unitsLogged <= 0) {
+    return res.status(400).json({ success: false, message: "unitsLogged must be a positive number" });
+  }
   const t = await sequelize.transaction();
-
   try {
     const userId = req.user!.userId;
     const { activityid } = req.params; // matches route's :activityid
@@ -51,17 +52,7 @@ export const awardActivityPoints = async (
       await t.rollback();
       return res.status(404).json({ success: false, message: "Activity not found" });
     }
-
-    if (activity.pointsPerUnit == null) {
-      await t.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Activity has no pointsPerUnit configured",
-      });
-    }
-
     const pointsEarned = unitsLogged * activity.pointsPerUnit;
-
     const log = await ActivityLog.create(
       {
         userId,
@@ -72,27 +63,14 @@ export const awardActivityPoints = async (
       },
       { transaction: t },
     );
-
-    await User.increment(
-      { totalXp: pointsEarned },
-      { where: { userId }, transaction: t },
-    );
-
+    await User.increment({ totalXp: pointsEarned }, { where: { userId }, transaction: t });
     await t.commit();
-
-    res.status(201).json({
-      success: true,
-      message: "Activity points awarded",
-      log: {
-        ...log.toJSON(),
-        pointsEarned,
-      },
-    });
+    res.status(201).json({ success: true, message: "Activity points awarded", log: { ...log.toJSON(), pointsEarned } });
   } catch (err) {
     await t.rollback();
-    next(err);
+    throw err;
   }
-};
+});
 
 export const getAllActivities = async(req:Request,res:Response,next:NextFunction)=>{
   try{

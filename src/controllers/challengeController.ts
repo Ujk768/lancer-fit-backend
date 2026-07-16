@@ -1,7 +1,11 @@
+// src/controllers/challengeController.ts
 import { Request, Response, NextFunction } from "express";
 import { ChallengeParticipant } from "../models/ChallengeParticipant";
 import { Challenge } from "../models/Challenge";
 import { User } from "../models/User";
+import { asyncHandler } from "../utils/asyncHandler";
+import { serializeChallenge, serializeUser } from "../utils/serializers";
+import { emit } from "../realtime/io";
 
 export const registerForChallenge = async (
   req: Request,
@@ -41,70 +45,47 @@ export const registerForChallenge = async (
   }
 };
 
-export const getUserChallenges = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    // req.user gets the user from the token after going through the middleware
-    const { userId } = req.user!;
+export const getUserChallenges = asyncHandler(async (req: Request, res: Response) => {
+  const { userId } = req.user!;
+  const participations = await ChallengeParticipant.findAll({
+    where: { userId }, include: [{ model: Challenge, as: "challenge" }],
+    order: [["createdAt", "DESC"]],
+  });
+  const challenges = participations.map((p) => ({
+    ...serializeChallenge(p.get("challenge") as Challenge),
+    myStatus: p.status, myPointsSubmitted: p.pointsSubmitted, myPointsAwarded: p.pointsAwarded,
+  }));
+  res.status(200).json({ success: true, challenges });
+});
 
-    const participations = await ChallengeParticipant.findAll({
-      where: { userId },
-      include: [
-        {
-          model: Challenge,
-          as: "challenge",
-          attributes: [
-            "challengeId",
-            "challengeName",
-            "startDate",
-            "endDate",
-            "status",
-          ],
-        },
-      ],
-      order: [["createdAt", "DESC"]],
-    });
+// export const getAllChallenges = asyncHandler(async (_req: Request, res: Response) => {
+//   const rows = await Challenge.findAll({ order: [["startDate", "ASC"]] });
+//   res.status(200).json({ success: true, challenges: rows.map(serializeChallenge) });
+// });
 
-    res.status(200).json({ participations });
-  } catch (err) {
-    next(err);
-  }
-};
+// export const getActiveChallenges = asyncHandler(async (_req: Request, res: Response) => {
+//   const rows = await Challenge.findAll({ where: { status: "active" }, order: [["startDate", "ASC"]] });
+//   res.status(200).json({ success: true, challenges: rows.map(serializeChallenge) });
+// });
 
-export const getChallengeLeaderboard = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const { challengeId } = req.params;
+// export const getChallengesByCategory = asyncHandler(async (req: Request, res: Response) => {
+//   const { category } = req.body;
+//   const rows = await Challenge.findAll({ where: { category }, order: [["startDate", "ASC"]] });
+//   res.status(200).json({ success: true, challenges: rows.map(serializeChallenge) });
+// });
 
-    const leaderboard = await ChallengeParticipant.findAll({
-      where: { challengeId, status: "approved" }, // only show approved entries on the leaderboard
-      include: [
-        {
-          model: User,
-          as: "user",
-          attributes: ["userId", "firstName", "lastName"],
-        },
-      ],
-      order: [["pointsAwarded", "DESC"]],
-    });
-
-    const ranked = leaderboard.map((entry, index) => ({
-      rank: index + 1,
-      user: entry.get("user"),
-      points: entry.pointsAwarded,
-    }));
-
-    res.status(200).json({ challengeId, leaderboard: ranked });
-  } catch (err) {
-    next(err);
-  }
-};
+export const getChallengeLeaderboard = asyncHandler(async (req: Request, res: Response) => {
+  const { challengeId } = req.params;
+  const rows = await ChallengeParticipant.findAll({
+    where: { challengeId, status: "approved" },
+    include: [{ model: User, as: "user", attributes: ["userId", "firstName", "lastName"] }],
+    order: [["pointsAwarded", "DESC"]],
+  });
+  const leaderboard = rows.map((entry, index) => ({
+    rank: index + 1, user: serializeUser(entry.get("user") as User), points: entry.pointsAwarded,
+  }));
+  res.status(200).json({ success: true, challengeId: Number(challengeId), leaderboard });
+});
 
 export const getChallengeParticipants = async (
   req: Request,

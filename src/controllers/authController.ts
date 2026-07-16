@@ -72,6 +72,7 @@ export const registerUser = async (req: Request, res: Response) => {
         email: user.email,
         faculty: user.faculty,
         nationality: user.nationality,
+        totalXp: user.totalXp,
         role: user.role,
       },
     });
@@ -116,6 +117,7 @@ export const loginUser = async (req: Request, res: Response) => {
         email: user.email,
         faculty: user.faculty,
         nationality: user.nationality,
+        totalXp: user.totalXp,
         role: user.role,
         // never include password here
       },
