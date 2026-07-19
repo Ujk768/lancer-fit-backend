@@ -156,11 +156,24 @@ export const submitChallengePoints = asyncHandler(async (req: Request, res: Resp
   }
   const participant = await ChallengeParticipant.findOne({ where: { userId, challengeId } });
   if (!participant) return res.status(403).json({ success: false, message: "You are not registered for this challenge" });
-  if (participant.status !== "pending") {
-    return res.status(400).json({ success: false, message: `Cannot submit points — this entry has already been ${participant.status}` });
+  // A user may re-log a new (e.g. better) result even after a previous one was
+  // approved or rejected. Submitting again resets the entry to "pending" so an
+  // admin re-validates it. We only block while a submission is already awaiting
+  // review, to avoid spamming the validation queue with duplicates.
+  const alreadyAwaitingReview =
+    participant.status === "pending" && (participant.pointsSubmitted ?? 0) > 0;
+  if (alreadyAwaitingReview) {
+    return res.status(400).json({
+      success: false,
+      message: "You already have a result awaiting review for this challenge",
+    });
   }
   participant.pointsSubmitted = pointsSubmitted;
   participant.submitted_at = new Date();
+  // Re-open for validation. If this entry was previously approved, its awarded
+  // points remain until the admin re-approves; resetting status to pending
+  // ensures the new result is reviewed before it changes the leaderboard.
+  participant.status = "pending";
   await participant.save();
   emit.toAllAdmins("validation:submitted", {
     participantId: participant.participantId, challengeId: Number(challengeId), userId, pointsSubmitted,
