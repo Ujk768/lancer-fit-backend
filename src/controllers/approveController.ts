@@ -7,6 +7,7 @@ import { sequelize } from "../config/database";
 import { asyncHandler } from "../utils/asyncHandler";
 import { serializeUser, serializeChallenge } from "../utils/serializers";
 import { emit } from "../realtime/io";
+import { push } from "../utils/push";
 
 export const getPendingApprovals = asyncHandler(async (_req: Request, res: Response) => {
   const rows = await ChallengeParticipant.findAll({
@@ -47,6 +48,11 @@ export const approveParticipant = asyncHandler(async (req: Request, res: Respons
       status: "approved", pointsAwarded: pointsToAward,
     });
     emit.toAllAdmins("validation:resolved", { participantId: participant.participantId });
+    void push.toUser(participant.userId, {
+      title: "Result approved",
+      body: `Your challenge result was approved — ${pointsToAward} XP added.`,
+      data: { type: "validation:decided", status: "approved", challengeId: participant.challengeId },
+    });
     res.status(200).json({ success: true, message: "Participant approved and points awarded", participant });
   } catch (err) { await t.rollback(); throw err; }
 });
