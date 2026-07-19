@@ -4,6 +4,7 @@ import { Quest } from "../models/Quest";
 import { ActivityArea } from "../models/ActivityArea";
 import { ActivitySubActivity } from "../models/ActivitySubActivity";
 import { hashPassword } from "../utils/password";
+import { seedQuestBadges } from "../services/badges/questBadges";
 
 const QUEST_SEED = [
   { title: "Walk 8,000 steps", xp: 40, category: "Cardio" },
@@ -58,4 +59,5 @@ export async function runSeed() {
     }
     console.log(`Seeded ${AREA_SEED.length} activity areas`);
   }
+  await seedQuestBadges();
 }

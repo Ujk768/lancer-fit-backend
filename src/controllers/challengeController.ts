@@ -3,9 +3,11 @@ import { Request, Response, NextFunction } from "express";
 import { ChallengeParticipant } from "../models/ChallengeParticipant";
 import { Challenge } from "../models/Challenge";
 import { User } from "../models/User";
+import { sequelize } from "../config/database";
 import { asyncHandler } from "../utils/asyncHandler";
 import { serializeChallenge, serializeUser } from "../utils/serializers";
 import { emit } from "../realtime/io";
+import { createChallengeBadges } from "../services/badges/challengeBadges";
 
 export const registerForChallenge = async (
   req: Request,
@@ -151,35 +153,54 @@ export const createChallenge = async (
   res: Response,
   next: NextFunction,
 ) => {
+  const {
+    challengeName,
+    challengeImage,
+    challengeDescription,
+    startDate,
+    endDate,
+    status,
+    venue,
+    instructorName,
+    challengeUnit,
+    pointsPerUnit,
+    category,
+    podiumFirst,
+    podiumSecond,
+    podiumThird,
+    badges, // optional ChallengeBadgeInput — name/image overrides per position
+  } = req.body;
+
+  const t = await sequelize.transaction();
   try {
-    const {
-      challengeName,
-      challengeImage,
-      challengeDescription,
-      startDate,
-      endDate,
-      status,
-      venue,
-      instructorName,
-      challengeUnit,
-      pointsPerUnit,
-      category,
-    } = req.body;
-    const challenge = await Challenge.create({
-      challengeName,
-      challengeImage,
-      challengeDescription,
-      startDate,
-      endDate,
-      status,
-      venue,
-      instructorName,
-      challengeUnit,
-      pointsPerUnit,
-      category,
-    });
+    const challenge = await Challenge.create(
+      {
+        challengeName,
+        challengeImage,
+        challengeDescription,
+        startDate,
+        endDate,
+        status,
+        venue,
+        instructorName,
+        challengeUnit,
+        pointsPerUnit,
+        category,
+        // podium XP feeds the position badges' awardXpValue — model defaults
+        // (500/300/150) apply when the admin doesn't set these
+        ...(podiumFirst != null && { podiumFirst }),
+        ...(podiumSecond != null && { podiumSecond }),
+        ...(podiumThird != null && { podiumThird }),
+      },
+      { transaction: t },
+    );
+
+    await createChallengeBadges(challenge, badges ?? {}, t);
+
+    await t.commit();
     res.status(201).json({ success: true, challenge });
   } catch (err) {
+    await t.rollback();
     next(err);
   }
 };

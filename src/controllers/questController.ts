@@ -5,6 +5,7 @@ import { DailyQuestOverride } from "../models/DailyQuestOverride";
 import { asyncHandler } from "../utils/asyncHandler";
 import { serializeQuest } from "../utils/serializers";
 import { emit } from "../realtime/io";
+import { resolveDailyQuests } from "../services/dailyQuests";
 
 const DAILY_QUEST_COUNT = 3;
 
@@ -34,32 +35,11 @@ export const removeQuest = asyncHandler(async (req: Request, res: Response) => {
   res.status(200).json({ success: true });
 });
 
-function pickDeterministic(bank: Quest[], dateKey: string): Quest[] {
-  if (bank.length === 0) return [];
-  let seed = 0;
-  for (const ch of dateKey) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
-  const pool = [...bank];
-  const picked: Quest[] = [];
-  const count = Math.min(DAILY_QUEST_COUNT, pool.length);
-  for (let i = 0; i < count; i++) {
-    seed = (seed * 1103515245 + 12345) >>> 0;
-    const idx = seed % pool.length;
-    picked.push(pool.splice(idx, 1)[0]);
-  }
-  return picked;
-}
-
 export const getDailyQuests = asyncHandler(async (req: Request, res: Response) => {
   const dateKey = (req.query.date as string) || new Date().toISOString().slice(0, 10);
-  const bank = await Quest.findAll();
-  const override = await DailyQuestOverride.findOne({ where: { dateKey } });
-  let quests: Quest[];
-  if (override) {
-    const byId = new Map(bank.map((q) => [q.questId, q]));
-    quests = override.questIds.map((id) => byId.get(id)).filter(Boolean) as Quest[];
-  } else {
-    quests = pickDeterministic(bank, dateKey);
-  }
+  // Selection logic lives in services/dailyQuests so the badge system resolves
+  // the exact same daily set this endpoint serves.
+  const quests = await resolveDailyQuests(dateKey);
   res.status(200).json({ success: true, date: dateKey, quests: quests.map(serializeQuest) });
 });
 

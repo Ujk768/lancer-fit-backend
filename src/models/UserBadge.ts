@@ -22,7 +22,11 @@ UserBadge.init(
     badgeID: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: { model: 'badges', key: 'badgeID' }, // matches your badgeId field
+      references: { model: 'badges', key: 'badgeID' },
+      // Deleting a Badge removes its award rows too. The application layer
+      // (deleteBadge's two-step confirm) decides whether a delete is allowed;
+      // this just handles cleanup once one proceeds. XP is not clawed back.
+      onDelete: 'CASCADE',
     },
   },
   {
@@ -31,6 +35,7 @@ UserBadge.init(
     tableName: 'user_badges',
     timestamps: true, // Tracks exactly WHEN they earned the badge!
     underscored: false,
+    indexes: [{ unique: true, fields: ['userId', 'badgeID'] }],
   }
 );
 
