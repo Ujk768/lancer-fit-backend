@@ -1,11 +1,6 @@
 // src/models/associations.ts
 //
 // All model relationships in one place (SRP: this file's only job is wiring).
-// Fixes from the original:
-//   - Removed User.hasMany(Activity) / Activity.belongsTo(User): the Activity
-//     model has no userId column, so that association was invalid and would
-//     break includes. Activities are a global catalog, not user-owned.
-//   - Added ExerciseSession, ActivityArea/SubActivity, Quest relationships.
 
 import { User } from "./User";
 import { UserStats } from "./UserStats";
@@ -19,6 +14,9 @@ import { ExerciseSession } from "./ExerciseSession";
 import { ActivityArea } from "./ActivityArea";
 import { ActivitySubActivity } from "./ActivitySubActivity";
 import { CustomActivity } from "./CustomActivity";
+import { RefreshToken } from "./RefreshToken";
+import { PasswordResetToken } from "./PasswordResetToken";
+import { EmailVerificationToken } from "./EmailVerificationToken";
 
 export function defineAssociations() {
   // ── User <-> Challenge (M:N through the participant bridge) ──
@@ -35,10 +33,19 @@ export function defineAssociations() {
     as: "participants",
   });
 
-  User.hasMany(ChallengeParticipant, { foreignKey: "userId", as: "participations" });
-  Challenge.hasMany(ChallengeParticipant, { foreignKey: "challengeId", as: "participations" });
+  User.hasMany(ChallengeParticipant, {
+    foreignKey: "userId",
+    as: "participations",
+  });
+  Challenge.hasMany(ChallengeParticipant, {
+    foreignKey: "challengeId",
+    as: "participations",
+  });
   ChallengeParticipant.belongsTo(User, { foreignKey: "userId", as: "user" });
-  ChallengeParticipant.belongsTo(Challenge, { foreignKey: "challengeId", as: "challenge" });
+  ChallengeParticipant.belongsTo(Challenge, {
+    foreignKey: "challengeId",
+    as: "challenge",
+  });
 
   // ── User <-> Stats (1:1) ──
   UserStats.belongsTo(User, { foreignKey: "userId", as: "user" });
@@ -46,10 +53,16 @@ export function defineAssociations() {
 
   // ── User <-> Badge (M:N) ──
   User.belongsToMany(Badge, {
-    through: UserBadge, foreignKey: "userId", otherKey: "badgeId", as: "badges",
+    through: UserBadge,
+    foreignKey: "userId",
+    otherKey: "badgeId",
+    as: "badges",
   });
   Badge.belongsToMany(User, {
-    through: UserBadge, foreignKey: "badgeId", otherKey: "userId", as: "owners",
+    through: UserBadge,
+    foreignKey: "badgeId",
+    otherKey: "userId",
+    as: "owners",
   });
 
   // ── Activity catalog <-> ActivityLog (1:M) ──
@@ -65,11 +78,48 @@ export function defineAssociations() {
   ExerciseSession.belongsTo(Activity, { foreignKey: "activityId" });
 
   // ── Activity areas <-> sub-activities (1:M) ──
-  ActivityArea.hasMany(ActivitySubActivity, { foreignKey: "areaId", as: "subs", onDelete: "CASCADE" });
-  ActivitySubActivity.belongsTo(ActivityArea, { foreignKey: "areaId", as: "area" });
+  ActivityArea.hasMany(ActivitySubActivity, {
+    foreignKey: "areaId",
+    as: "subs",
+    onDelete: "CASCADE",
+  });
+  ActivitySubActivity.belongsTo(ActivityArea, {
+    foreignKey: "areaId",
+    as: "area",
+  });
 
   // ── User <-> CustomActivity (1:M) ──
-  User.hasMany(CustomActivity, { foreignKey: "userId", as: "customActivities", onDelete: "CASCADE" });
+  User.hasMany(CustomActivity, {
+    foreignKey: "userId",
+    as: "customActivities",
+    onDelete: "CASCADE",
+  });
   CustomActivity.belongsTo(User, { foreignKey: "userId", as: "user" });
 
+  User.hasMany(RefreshToken, {
+    foreignKey: "userId",
+    as: "refreshTokens",
+  });
+
+  RefreshToken.belongsTo(User, {
+    foreignKey: "userId",
+  });
+
+  User.hasMany(PasswordResetToken, {
+    foreignKey: "userId",
+    as: "passwordResetTokens",
+  });
+
+  PasswordResetToken.belongsTo(User, {
+    foreignKey: "userId",
+  });
+
+  User.hasMany(EmailVerificationToken, {
+    foreignKey: "userId",
+    as: "emailVerificationTokens",
+  });
+
+  EmailVerificationToken.belongsTo(User, {
+    foreignKey: "userId",
+  });
 }
