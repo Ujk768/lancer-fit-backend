@@ -76,6 +76,9 @@ export const getCampusLeaderboard = asyncHandler(async (req: Request, res: Respo
     facultyKey: FACULTY_KEY_BY_VALUE[u.faculty] || null,
     nationality: u.nationality,
     xp: u.totalXp || 0,
+    // Real Lancer level (2000 XP/level) so the client renders the correct
+    // evolving avatar tier instead of always showing the Squire (tier 1).
+    level: Math.floor((u.totalXp || 0) / 2000) + 1,
   }));
 
   res.status(200).json({ success: true, leaderboard: board });

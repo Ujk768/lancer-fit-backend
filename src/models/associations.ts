@@ -1,6 +1,4 @@
-// src/models/associations.ts
-//
-// All model relationships in one place (SRP: this file's only job is wiring).
+// All model relationships in one place (This file's only job is wiring).
 
 import { User } from "./User";
 import { UserStats } from "./UserStats";
@@ -17,6 +15,9 @@ import { CustomActivity } from "./CustomActivity";
 import { RefreshToken } from "./RefreshToken";
 import { PasswordResetToken } from "./PasswordResetToken";
 import { EmailVerificationToken } from "./EmailVerificationToken";
+// PushToken is imported here purely so it registers with Sequelize and its
+// table is created by sequelize.sync(). It has no relational associations.
+import "./PushToken";
 
 export function defineAssociations() {
   // ── User <-> Challenge (M:N through the participant bridge) ──
