@@ -1,4 +1,3 @@
-// src/routes/index.ts
 // Master router. Everything is mounted under /api (see app.use("/api", ...) in
 // src/index.ts) so the full paths are /api/auth/login, /api/challenge/all, etc.
 import { Router } from "express";
@@ -16,6 +15,7 @@ import exerciseRoutes from "./exerciseRoutes";
 import customActivityRoutes from "./customActivityRoutes";
 import leaderboardRoutes from "./leaderboardRoutes";
 import checkinRoutes from "./checkinRoutes";
+import pushRoutes from "./pushRoutes";
 
 const router = Router();
 
@@ -33,5 +33,6 @@ router.use("/exercise", exerciseRoutes);
 router.use("/custom-activity", customActivityRoutes);
 router.use("/leaderboard", leaderboardRoutes);
 router.use("/checkin", checkinRoutes);
+router.use("/push", pushRoutes);
 
 export default router;

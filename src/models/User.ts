@@ -33,6 +33,9 @@ export class User extends Model {
   declare nationality: string;
   declare faculty: string;
   declare totalXp: number;
+
+  declare emailVerified: boolean;
+
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 }
@@ -84,8 +87,13 @@ User.init(
     totalXp: {
       type: DataTypes.FLOAT,
       allowNull: false,
-      defaultValue: 0
-    }
+      defaultValue: 0,
+    },
+    emailVerified: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
   },
   {
     sequelize,

@@ -1,13 +1,14 @@
 // src/routes/questRoutes.ts
 import { Router } from "express";
 import { authenticate, authorize } from "../middleware/auth";
-import { listQuests, addQuest, removeQuest, getDailyQuests, setDailyQuests, clearDailyOverride } from "../controllers/questController";
+import { listQuests, removeQuest, getDailyQuests, setDailyQuests, clearDailyOverride, addQuest } from "../controllers/questController";
 
 const router = Router();
+router.get("/list", authenticate, listQuests);
 router.get("/daily", authenticate, getDailyQuests);
-router.put("/daily", authenticate, authorize("admin"), setDailyQuests);
+router.put("/set-daily", authenticate, authorize("admin"), setDailyQuests);
 router.delete("/daily/:date", authenticate, authorize("admin"), clearDailyOverride);
-router.get("/", authenticate, listQuests);
-router.post("/", authenticate, authorize("admin"), addQuest);
+router.post("/add", authenticate, authorize("admin"), addQuest);
 router.delete("/:id", authenticate, authorize("admin"), removeQuest);
-export default router;
+
+export default router

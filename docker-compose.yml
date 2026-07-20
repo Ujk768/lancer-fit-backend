@@ -18,6 +18,36 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
+  app:
+    build:
+      context: .
+      target: development
+    container_name: lancer-fit-app
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=db  # This works inside Docker!
+      - DB_USER=${DB_USER:-user}
+      - DB_PASSWORD=${DB_PASSWORD:-pwd}
+      - DB_NAME=${DB_NAME:-lancer-fit-db}
+    depends_on:
+      db:
+        condition: service_healthy
+    develop:
+      watch:
+        # Sync source code changes into the container instantly (no rebuild)
+        - action: sync
+          path: ./src
+          target: /usr/src/app/src
+        # Rebuild the image if package.json changes (new dependencies)
+          ignore:
+          - node_modules/
+          - "*.log"
+        - action: rebuild
+          path: ./package.json
+        # Rebuild if package-lock.json changes too
+        - action: rebuild
+          path: ./package-lock.json
 volumes:
   pgdata:
