@@ -4,20 +4,64 @@ import Badge, { BadgeType } from '../models/Badges';
 import { SpecialtyBadge } from '../models/SpecialtyBadge';
 import { sequelize } from '../config/database';
 import { SPECIALTY_RULE_KEYS } from '../services/badges/specialtyBadges';
+import { buildMetaMap, serializeBadge } from '../services/badges/badgeSerializer';
 
 /**
- * @desc    Get all badges
+ * @desc    Full badge catalog (every badge definition), each with its
+ *          type-specific metadata. Use this for a "all badges / locked +
+ *          unlocked" view; cross-reference badgeId against GET /badge/me to
+ *          mark which the current user has earned.
  * @route   GET /api/badge/all
  * @access  Public
  */
 export const getAllBadges = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const badges = await Badge.findAll();
-    res.status(200).json({
-      success: true,
-      count: badges.length,
-      data: badges,
+    const badges = await Badge.findAll({ order: [['badgeID', 'ASC']] });
+    const metaMap = await buildMetaMap(badges);
+    const data = badges.map((b) => serializeBadge(b, metaMap.get(b.badgeID) ?? null));
+    res.status(200).json({ success: true, count: data.length, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Badges the logged-in user has earned, each with earnedAt and the
+ *          same metadata shape as /badge/all. This is the endpoint a "my
+ *          badges" screen reads.
+ * @route   GET /api/badge/me
+ * @access  Authenticated (any logged-in user)
+ */
+export const getMyBadges = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.userId;
+
+    // Award rows, newest first — createdAt is the earned-at timestamp.
+    const awards = await UserBadge.findAll({
+      where: { userId },
+      order: [['createdAt', 'DESC']],
     });
+    if (awards.length === 0) {
+      return res.status(200).json({ success: true, count: 0, data: [] });
+    }
+
+    const earnedAtByBadgeId = new Map<number, Date>();
+    for (const a of awards) earnedAtByBadgeId.set(a.badgeID, a.get('createdAt') as Date);
+
+    const badges = await Badge.findAll({ where: { badgeID: [...earnedAtByBadgeId.keys()] } });
+    const metaMap = await buildMetaMap(badges);
+
+    // Preserve the award ordering (newest earned first).
+    const badgeById = new Map(badges.map((b) => [b.badgeID, b]));
+    const data = awards
+      .map((a) => {
+        const badge = badgeById.get(a.badgeID);
+        if (!badge) return null; // award row lingered past its badge — skip defensively
+        return serializeBadge(badge, metaMap.get(badge.badgeID) ?? null, earnedAtByBadgeId.get(badge.badgeID)!);
+      })
+      .filter(Boolean);
+
+    res.status(200).json({ success: true, count: data.length, data });
   } catch (error) {
     next(error);
   }
