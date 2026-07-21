@@ -39,7 +39,11 @@ export async function resolveDailyQuests(
   const override = await DailyQuestOverride.findOne({ where: { dateKey }, transaction });
   if (override) {
     const byId = new Map(bank.map((q) => [q.questId, q]));
-    return override.questIds.map((id) => byId.get(id)).filter(Boolean) as Quest[];
+    // Number(id) guards against ids stored as strings in the JSON override.
+    const picked = override.questIds.map((id) => byId.get(Number(id))).filter(Boolean) as Quest[];
+    // An override that no longer maps to any live quest (all its quests were
+    // deleted) falls back to the deterministic pick rather than serving nothing.
+    if (picked.length > 0) return picked;
   }
   return pickDeterministic(bank, dateKey);
 }

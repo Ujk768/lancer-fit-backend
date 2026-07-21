@@ -38,7 +38,8 @@ export const removeQuest = asyncHandler(async (req: Request, res: Response) => {
 export const getDailyQuests = asyncHandler(async (req: Request, res: Response) => {
   const dateKey = (req.query.date as string) || new Date().toISOString().slice(0, 10);
   // Selection logic lives in services/dailyQuests so the badge system resolves
-  // the exact same daily set this endpoint serves.
+  // the exact same daily set this endpoint serves. (The override Number()
+  // coercion and empty-override fallback from live-integration now live there.)
   const quests = await resolveDailyQuests(dateKey);
   res.status(200).json({ success: true, date: dateKey, quests: quests.map(serializeQuest) });
 });
@@ -50,7 +51,13 @@ export const setDailyQuests = asyncHandler(async (req: Request, res: Response) =
     return res.status(400).json({ message: "Select at least one quest for the day." });
   }
   if (questIds.length > 5) return res.status(400).json({ message: "A day can carry at most 5 quests." });
-  await DailyQuestOverride.upsert({ dateKey: date, questIds });
+
+  const normalizedIds = questIds.map((id) => Number(id));
+  if (normalizedIds.some((id) => !Number.isInteger(id))) {
+    return res.status(400).json({ message: "Quest ids must be valid numbers." });
+  }
+
+  await DailyQuestOverride.upsert({ dateKey: date, questIds: normalizedIds });
   emit.toAllStudents("quests:updated", { date });
   res.status(200).json({ success: true });
 });

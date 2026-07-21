@@ -1,5 +1,3 @@
-// src/utils/serializers.ts
-//
 // The contract layer. Every controller returns data through these functions so
 // the JSON shape the frontends consume is defined in exactly ONE place (DRY).
 // If a DB column is renamed, only this file changes — not every controller and
@@ -39,7 +37,38 @@ export function serializeChallenge(c: Challenge) {
   };
 }
 
+// Faculty display value -> stable theme key (faculty1..9), mirroring the app.
+// The mobile app themes each user's avatar and accent color off this key, so
+// exposing it here lets leaderboards (campus, faculty, AND per-challenge) render
+// the correct faculty avatar + color for every user without extra lookups.
+const FACULTY_KEY_BY_VALUE: Record<string, string> = {
+  "Faculty of Arts, Humanities and Social Sciences": "faculty1",
+  "Faculty of Education": "faculty2",
+  "Faculty of Engineering": "faculty3",
+  "Faculty of Graduate Studies": "faculty4",
+  "Faculty of Human Kinetics": "faculty5",
+  "Faculty of Law": "faculty6",
+  "Faculty of Nursing": "faculty7",
+  "Odette School of Business": "faculty8",
+  "Faculty of Science": "faculty9",
+};
+
+// Lancer level from total XP (2000 XP per level), mirroring meController's
+// curve. The avatar art evolves by a 5-tier ladder keyed to this level, so we
+// send both so any leaderboard can show the right avatar tier.
+function levelFromXp(totalXp: number): number {
+  return Math.floor((totalXp || 0) / 2000) + 1;
+}
+function avatarTierFromLevel(level: number): number {
+  if (level >= 20) return 5;
+  if (level >= 14) return 4;
+  if (level >= 8) return 3;
+  if (level >= 3) return 2;
+  return 1;
+}
+
 export function serializeUser(u: User) {
+  const level = levelFromXp(u.totalXp);
   return {
     id: u.userId,
     firstName: u.firstName,
@@ -48,8 +77,13 @@ export function serializeUser(u: User) {
     email: u.email,
     role: u.role,
     faculty: u.faculty,
+    // Stable theme key + avatar tier so any leaderboard renders the real
+    // faculty avatar, color, and flag for this user (not a hardcoded default).
+    facultyKey: FACULTY_KEY_BY_VALUE[u.faculty] || "faculty9",
     nationality: u.nationality,
     totalXp: u.totalXp,
+    level,
+    avatarTier: avatarTierFromLevel(level),
   };
 }
 
