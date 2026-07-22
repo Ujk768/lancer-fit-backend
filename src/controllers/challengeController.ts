@@ -53,7 +53,42 @@ export const getAllChallenges = asyncHandler(async (_req: Request, res: Response
 
 export const getActiveChallenges = asyncHandler(async (_req: Request, res: Response) => {
   const rows = await Challenge.findAll({ where: { status: "active" }, order: [["startDate", "ASC"]] });
-  res.status(200).json({ success: true, challenges: rows.map(serializeChallenge) });
+
+  // Attach the latest joiners so the mobile browse cards can show real avatars
+  // under each challenge ("N Lancers joined"). This was dropped during a merge,
+  // which is why those avatars stopped rendering.
+  //
+  // Fetched in TWO queries total (not one per challenge) to avoid an N+1:
+  // all participants for the visible challenges, then all their users.
+  const challengeIds = rows.map((c) => c.challengeId);
+
+  let recentByChallenge: Record<number, ReturnType<typeof serializeUser>[]> = {};
+
+  if (challengeIds.length > 0) {
+    const parts = await ChallengeParticipant.findAll({
+      where: { challengeId: challengeIds },
+      order: [["createdAt", "DESC"]],
+    });
+
+    const userIds = [...new Set(parts.map((p) => p.userId))];
+    const users = await User.findAll({ where: { userId: userIds } });
+    const userById = new Map(users.map((u) => [u.userId, u]));
+
+    for (const p of parts) {
+      const list = recentByChallenge[p.challengeId] || (recentByChallenge[p.challengeId] = []);
+      if (list.length >= 3) continue; // latest 3 only
+      const u = userById.get(p.userId);
+      if (u) list.push(serializeUser(u));
+    }
+  }
+
+  res.status(200).json({
+    success: true,
+    challenges: rows.map((c) => ({
+      ...serializeChallenge(c),
+      recentParticipants: recentByChallenge[c.challengeId] || [],
+    })),
+  });
 });
 
 // GET /challenge/pending — challenges awaiting the admin's attention.
