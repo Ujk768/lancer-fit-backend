@@ -7,9 +7,11 @@ import { ActivityBadge } from "../../models/ActivityBadge";
 import { ChallengePositionBadge } from "../../models/ChallengePositionBadge";
 import { QuestBadge } from "../../models/QuestBadge";
 import { SpecialtyBadge } from "../../models/SpecialtyBadge";
+import { ExerciseBadge } from "../../models/ExerciseBadge";
 
 export type BadgeMeta =
   | { kind: "activity"; scope: string; activityId: number | null; category: string | null; metric: string; tier: number; threshold: number }
+  | { kind: "exercise"; scope: string; targetKey: string | null; metric: string; tier: number; threshold: number }
   | { kind: "challenge_position"; challengeId: number; position: string }
   | { kind: "quest"; metric: string; completionMode: string; tier: number; threshold: number }
   | { kind: "specialty"; ruleKey: string }
@@ -21,6 +23,7 @@ const ACTIVITY_TYPES: string[] = [
   BadgeType.ACTIVITY_STREAK,
 ];
 const QUEST_TYPES: string[] = [BadgeType.QUEST_FREQUENCY, BadgeType.QUEST_STREAK];
+const EXERCISE_TYPES: string[] = [BadgeType.EXERCISE_FREQUENCY, BadgeType.EXERCISE_STREAK];
 
 // Build a badgeId -> meta lookup for a set of badges, batching one query per
 // sub-type table.
@@ -28,12 +31,14 @@ export async function buildMetaMap(badges: Badge[]): Promise<Map<number, BadgeMe
   const map = new Map<number, BadgeMeta>();
 
   const activityIds: number[] = [];
+  const exerciseIds: number[] = [];
   const challengeIds: number[] = [];
   const questIds: number[] = [];
   const specialtyIds: number[] = [];
 
   for (const b of badges) {
     if (ACTIVITY_TYPES.includes(b.badgeType)) activityIds.push(b.badgeID);
+    else if (EXERCISE_TYPES.includes(b.badgeType)) exerciseIds.push(b.badgeID);
     else if (b.badgeType === BadgeType.CHALLENGE_POSITION) challengeIds.push(b.badgeID);
     else if (QUEST_TYPES.includes(b.badgeType)) questIds.push(b.badgeID);
     else if (b.badgeType === BadgeType.SPECIALTY) specialtyIds.push(b.badgeID);
@@ -57,6 +62,14 @@ export async function buildMetaMap(badges: Badge[]): Promise<Map<number, BadgeMe
       map.set(qb.badgeId, {
         kind: "quest", metric: qb.metric, completionMode: qb.completionMode,
         tier: qb.tier, threshold: qb.threshold,
+      });
+    }
+  }
+  if (exerciseIds.length) {
+    for (const eb of await ExerciseBadge.findAll({ where: { badgeId: exerciseIds } })) {
+      map.set(eb.badgeId, {
+        kind: "exercise", scope: eb.scope, targetKey: eb.targetKey,
+        metric: eb.metric, tier: eb.tier, threshold: eb.threshold,
       });
     }
   }

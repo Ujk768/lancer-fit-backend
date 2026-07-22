@@ -16,6 +16,7 @@ import { ChallengePositionBadge } from "./ChallengePositionBadge";
 import { ActivityBadge } from "./ActivityBadge";
 import { QuestBadge } from "./QuestBadge";
 import { SpecialtyBadge } from "./SpecialtyBadge";
+import { ExerciseBadge } from "./ExerciseBadge";
 import { RefreshToken } from "./RefreshToken";
 import { PasswordResetToken } from "./PasswordResetToken";
 import { EmailVerificationToken } from "./EmailVerificationToken";
@@ -84,6 +85,9 @@ export function defineAssociations() {
 
   Badge.hasOne(SpecialtyBadge, { foreignKey: "badgeId" });
   SpecialtyBadge.belongsTo(Badge, { foreignKey: "badgeId" });
+
+  Badge.hasOne(ExerciseBadge, { foreignKey: "badgeId" });
+  ExerciseBadge.belongsTo(Badge, { foreignKey: "badgeId" });
 
   // ── Activity catalog <-> ActivityLog (1:M) ──
   User.hasMany(ActivityLog, { foreignKey: "userId" });

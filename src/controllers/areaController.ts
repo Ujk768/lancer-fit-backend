@@ -5,6 +5,8 @@ import { ActivitySubActivity } from "../models/ActivitySubActivity";
 import { asyncHandler } from "../utils/asyncHandler";
 import { serializeArea, serializeSubActivity } from "../utils/serializers";
 import { emit } from "../realtime/io";
+import { generateExerciseBadgesFor } from "../services/badges/exerciseBadges";
+import { ExerciseBadgeScope } from "../models/ExerciseBadge";
 
 const slugify = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
@@ -23,6 +25,7 @@ export const addArea = asyncHandler(async (req: Request, res: Response) => {
   const exists = await ActivityArea.findOne({ where: { key } });
   if (exists) return res.status(409).json({ message: "An area with that name already exists." });
   const area = await ActivityArea.create({ key, name: name.trim(), icon: icon || null, accent: accent || null });
+  await generateExerciseBadgesFor(ExerciseBadgeScope.AREA, area.key, area.name);
   emit.toAllStudents("areas:updated", { areaId: area.areaId });
   res.status(201).json({ success: true, area: serializeArea(area as any) });
 });
@@ -47,6 +50,7 @@ export const addSubActivity = asyncHandler(async (req: Request, res: Response) =
     areaId, key, name: name.trim(), icon: icon || null, hint: hint || null,
     promotedFromOther: !!promotedFromOther,
   });
+  await generateExerciseBadgesFor(ExerciseBadgeScope.EXERCISE, sub.key, sub.name);
   emit.toAllStudents("areas:updated", { areaId });
   res.status(201).json({ success: true, activity: serializeSubActivity(sub) });
 });

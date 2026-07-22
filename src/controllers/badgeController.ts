@@ -97,13 +97,19 @@ export const createBadge = async (req: Request, res: Response, next: NextFunctio
         '(POST /api/activity/create), challenge badges with the challenge (POST /api/challenge/add).',
     });
   }
-  // Reject unregistered rule keys NOW rather than creating a badge whose rule
-  // never runs — a silent no-op forever is much worse than an immediate 400.
-  if (!ruleKey || !SPECIALTY_RULE_KEYS.includes(ruleKey)) {
+  // Two accepted ruleKey forms:
+  //  - a hardcoded rule from the code registry (evaluated on activity logging), or
+  //  - "exercise:<exerciseKey>" — earned by logging that catalog exercise via
+  //    POST /api/exercise/log (evaluated by evaluateExerciseBadges). This form is
+  //    data-driven, so no code change is needed to add one.
+  // Reject anything else NOW rather than creating a badge whose rule never runs.
+  const isExerciseRule = /^exercise:[a-z0-9-]+$/.test(ruleKey || '');
+  if (!ruleKey || (!SPECIALTY_RULE_KEYS.includes(ruleKey) && !isExerciseRule)) {
     return res.status(400).json({
       success: false,
-      message: `ruleKey must be one of: ${SPECIALTY_RULE_KEYS.join(', ')}. ` +
-        'New rules are added in code first (src/services/badges/specialtyBadges.ts).',
+      message: `ruleKey must be one of: ${SPECIALTY_RULE_KEYS.join(', ')}, ` +
+        `or of the form "exercise:<exerciseKey>" (e.g. "exercise:basketball"). ` +
+        'Hardcoded rules are added in code first (src/services/badges/specialtyBadges.ts).',
     });
   }
 

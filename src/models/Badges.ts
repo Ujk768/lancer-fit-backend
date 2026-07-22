@@ -9,6 +9,8 @@ export enum BadgeType {
   ACTIVITY_STREAK = 'activity_streak',
   QUEST_FREQUENCY = 'quest_frequency',
   QUEST_STREAK = 'quest_streak',
+  EXERCISE_FREQUENCY = 'exercise_frequency',
+  EXERCISE_STREAK = 'exercise_streak',
   SPECIALTY = 'specialty',
 }
 
