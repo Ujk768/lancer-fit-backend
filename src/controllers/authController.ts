@@ -287,7 +287,7 @@ export const refresh = async (req: Request, res: Response) => {
 
     const record = await RefreshToken.findOne({
       where: {
-        token: hashToken(refreshToken),
+        tokenHash: hashToken(refreshToken),
       },
     });
 
