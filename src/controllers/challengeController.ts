@@ -6,6 +6,8 @@ import { User } from "../models/User";
 import { asyncHandler } from "../utils/asyncHandler";
 import { serializeChallenge, serializeUser } from "../utils/serializers";
 import { emit } from "../realtime/io";
+import { sequelize } from "../config/database";
+import { createChallengeBadges } from "../services/badges/challengeBadges";
 
 export const registerForChallenge = asyncHandler(async (req: Request, res: Response) => {
   const { userId } = req.user!;
@@ -152,22 +154,36 @@ export const getChallengeParticipants = asyncHandler(async (req: Request, res: R
 
 export const createChallenge = asyncHandler(async (req: Request, res: Response) => {
   const b = req.body;
-  const challenge = await Challenge.create({
-    challengeName: b.title ?? b.challengeName,
-    challengeImage: b.imageUrl ?? b.challengeImage ?? null,
-    challengeDescription: b.description ?? b.challengeDescription ?? "",
-    startDate: b.startDate, endDate: b.endDate, status: b.status ?? "active",
-    venue: b.venue ?? null, instructorName: b.instructorName ?? null,
-    challengeUnit: b.unit ?? b.challengeUnit, pointsPerUnit: b.pointsPerUnit ?? 0,
-    category: b.category ?? b.type ?? null, type: b.type ?? b.category ?? null, goal: b.goal ?? 0,
-    xpReward: b.xpReward ?? b.podium?.first ?? 0,
-    podiumFirst: b.podium?.first ?? 500, podiumSecond: b.podium?.second ?? 300, podiumThird: b.podium?.third ?? 150,
-    requiresValidation: b.requiresValidation == null ? true : !!b.requiresValidation,
-    createdBy: b.createdBy ?? req.user?.name ?? "Administrator", participantsCount: 0,
-  });
-  const payload = serializeChallenge(challenge);
-  emit.toAllStudents("challenge:created", payload);
-  res.status(201).json({ success: true, challenge: payload });
+  // Challenge + its 4 position badges are created together: either all exist or
+  // none do. b.badges is an optional { gold?, silver?, bronze?, participant? }
+  // of name/image overrides; gold/silver/bronze badge XP comes from the podium
+  // fields below.
+  const t = await sequelize.transaction();
+  try {
+    const challenge = await Challenge.create({
+      challengeName: b.title ?? b.challengeName,
+      challengeImage: b.imageUrl ?? b.challengeImage ?? null,
+      challengeDescription: b.description ?? b.challengeDescription ?? "",
+      startDate: b.startDate, endDate: b.endDate, status: b.status ?? "active",
+      venue: b.venue ?? null, instructorName: b.instructorName ?? null,
+      challengeUnit: b.unit ?? b.challengeUnit, pointsPerUnit: b.pointsPerUnit ?? 0,
+      category: b.category ?? b.type ?? null, type: b.type ?? b.category ?? null, goal: b.goal ?? 0,
+      xpReward: b.xpReward ?? b.podium?.first ?? 0,
+      podiumFirst: b.podium?.first ?? 500, podiumSecond: b.podium?.second ?? 300, podiumThird: b.podium?.third ?? 150,
+      requiresValidation: b.requiresValidation == null ? true : !!b.requiresValidation,
+      createdBy: b.createdBy ?? req.user?.name ?? "Administrator", participantsCount: 0,
+    }, { transaction: t });
+
+    await createChallengeBadges(challenge, b.badges ?? {}, t);
+    await t.commit();
+
+    const payload = serializeChallenge(challenge);
+    emit.toAllStudents("challenge:created", payload);
+    res.status(201).json({ success: true, challenge: payload });
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
 });
 
 export const deleteChallenge = asyncHandler(async (req: Request, res: Response) => {
