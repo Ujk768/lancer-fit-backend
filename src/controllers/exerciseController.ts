@@ -19,6 +19,7 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { serializeSession } from "../utils/serializers";
 import { emit } from "../realtime/io";
 import { ensureCustom } from "./customActivityController";
+import { evaluateExerciseBadges } from "../services/badges/exerciseBadges";
 
 const slugify = (s: string) =>
   s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -87,6 +88,11 @@ export const logExercise = asyncHandler(async (req: Request, res: Response) => {
     );
 
     await User.increment({ totalXp: points }, { where: { userId }, transaction: t });
+
+    // Award any badge earned by logging this specific exercise (bridge from the
+    // ExerciseSession path into the badge system).
+    await evaluateExerciseBadges(userId, session, t);
+
     await t.commit();
 
     // Only remember GENUINE custom activities (ones the user created under

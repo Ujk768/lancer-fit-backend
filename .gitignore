@@ -71,3 +71,7 @@ temp/
 
 # Misc
 .yarn-integrity
+
+# Personal notes (not for the team repo)
+HANDOFF.md
+BACKEND_EXPLAINER.md
