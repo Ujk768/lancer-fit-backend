@@ -1,0 +1,195 @@
+Data model
+==========
+
+PostgreSQL via Sequelize. Model files are in src/models/; relations are
+declared in src/models/associations.ts and applied once at boot.
+
+Naming: model classes are PascalCase, table names are snake_case plural,
+primary keys are named after the entity (userId, challengeId, badgeID) rather
+than a bare id, except on join and rule tables where id is used.
+
+
+Identity
+--------
+
+users (User.ts)
+	userId PK, firstName, lastName, email unique, password (bcrypt hash),
+	role ("student" | "admin"), faculty, nationality, totalXp (float,
+	default 0), emailVerified (bool).
+
+	faculty stores the full display string from the Faculty enum, not a code.
+	The enum has nine values plus Admin. serializers.ts maps each display
+	string to a stable theme key faculty1..faculty9; that key drives avatar
+	art and accent colour in both clients. If a faculty name is ever edited,
+	the map in serializers.ts must be edited in the same commit or every
+	affected user silently falls back to faculty9.
+
+	There is no avatar column. Avatar identity is derived: faculty key selects
+	the art set, level selects the tier within it.
+
+admins (Admin.ts)
+	adminId PK, name, email unique, password, role (defaults to TLC_STAFF).
+	Separate table from users. Admin login is a separate endpoint.
+
+user_stats (UserStats.ts)
+	statsId PK, userId unique, xp, currentStreak, longestStreak.
+	Legacy. The live profile endpoint derives streak and level from session
+	history and users.totalXp instead, so these columns are not authoritative.
+	See docs/maintenance.md before writing to this table.
+
+refresh_tokens, password_reset_tokens, email_verification_tokens
+	userId, a hash column, expiresAt, usedAt/revokedAt. Raw tokens and OTP
+	codes are never stored, only hashes.
+
+push_tokens (PushToken.ts)
+	ownerId, ownerRole ("student" | "admin"), token (ExponentPushToken[...]),
+	platform. One row per device per account.
+
+
+Activity catalogue
+------------------
+
+activity_areas (ActivityArea.ts)
+	areaId PK, key unique, name, icon, accent.
+	The facility areas the TLC advertises: pool, fitness centre, group
+	fitness, open rec and courts, and so on.
+
+activity_sub_activities (ActivitySubActivity.ts)
+	subId PK, areaId FK, key, name, icon, hint, promotedFromOther.
+	Unique on (areaId, key). The individual things a student can log inside
+	an area. promotedFromOther marks entries that started life as a
+	free-text custom activity and were later adopted into the catalogue.
+
+activities (Activity.ts)
+	activityId PK, activityName, activityImage, activityDescription, units,
+	pointsPerUnit, category.
+	The older points-per-unit catalogue used by the activity award endpoint
+	and the activity badge rules. It is a separate axis from the area /
+	sub-activity tree above; the two are not joined.
+
+custom_activities (CustomActivity.ts)
+	id PK, userId FK, key, name, pinned, lastUsedAt. Unique on (userId, key).
+	Per-student free-text activities plus the pin state that drives the home
+	screen stat tiles.
+
+
+Logging
+-------
+
+exercise_sessions (ExerciseSession.ts)
+	sessionId PK, userId FK, activityId FK nullable, exerciseKey,
+	exerciseName, areaKey, quantity, unit, durationMin, points, performedAt.
+
+	This is the primary activity ledger and the table most read paths depend
+	on. Stats, the derived streak, exercise badges and the gym check-in all
+	write or read here. A gym check-in is stored as an ExerciseSession with
+	exerciseKey "gym-checkin".
+
+activity_logs (ActivityLog.ts)
+	id PK, userId FK, activityId FK, date, unitsLogged, pointsPerUnit.
+	The parallel ledger for the points-per-unit Activity catalogue.
+	pointsPerUnit is snapshotted at log time so later rate changes do not
+	retroactively rescore history.
+
+	Two ledgers exist for historical reasons. Anything user-facing reads
+	exercise_sessions. Do not add a third.
+
+
+Challenges
+----------
+
+challenges (Challenge.ts)
+	challengeId PK, challengeName, challengeImage, challengeDescription,
+	startDate, endDate, status (default "active"), venue, instructorName,
+	challengeUnit, pointsPerUnit, category, type, goal, xpReward,
+	podiumFirst/Second/Third (defaults 500/300/150), requiresValidation,
+	createdBy, participantsCount.
+
+	participantsCount is denormalised. It is maintained by the register
+	handler; nothing recomputes it, so a direct DELETE against
+	challenge_participants will leave it wrong.
+
+	season is not stored. It is computed from startDate by utils/season.ts
+	(Winter Dec-Feb, Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, December
+	rolling into the next year) and mirrored in the admin frontend. Both
+	copies must agree.
+
+challenge_participants (ChallengeParticipant.ts)
+	participantId PK, userId FK, challengeId FK, unique on (userId,
+	challengeId), status ("pending" | "approved" | "rejected"), submitted_at,
+	reviewed_at, reviewed_by, pointsSubmitted, pointsAwarded.
+
+	This single row is both the join row and the validation record. A student
+	joining creates it; submitting a result sets pointsSubmitted and status
+	pending; staff approval sets pointsAwarded, reviewed_at, reviewed_by.
+	Re-submission after a decision is allowed and resets status to pending.
+
+
+Quests
+------
+
+quests (Quest.ts)
+	questId PK, title, xp, category (default "Lifestyle").
+	The bank staff maintain. Not a per-day record.
+
+daily_quest_overrides (DailyQuestOverride.ts)
+	id PK, dateKey "YYYY-MM-DD" unique, questIds JSONB array.
+	Present only for dates staff have hand-picked. Absence means the
+	deterministic selection applies. See docs/gamification.md.
+
+	There is no table recording that a student completed a quest. Quest claim
+	writes XP straight onto users.totalXp. This is the single largest gap in
+	the model; see docs/maintenance.md.
+
+
+Badges
+------
+
+badges (Badges.ts)
+	badgeID PK, badgeName, badgeImage nullable, badgeDescription,
+	awardXpValue, secret, badgeType.
+	The catalogue row. Every badge, whatever its source, has one.
+
+user_badges (UserBadge.ts)
+	id PK, userId FK, badgeID FK, unique on (userId, badgeID), timestamps.
+	The award ledger. createdAt is when the student earned it. Deleting a
+	badge cascades these rows away; XP already granted is not clawed back.
+
+Rule tables, one per badge family, each pointing at a badges row:
+
+	activity_badges     scope, activityId, category, metric, tier, threshold
+	exercise_badges     scope, targetKey, metric, tier, threshold
+	quest_badges        metric, completionMode, tier, threshold
+	specialty_badges    ruleKey (unique per badge)
+	challenge_position_badges   challengeId, position, unique per pair
+
+	Splitting the rules out keeps badges generic and lets each family have
+	the columns it actually needs. A badge row without a matching rule row is
+	never awarded automatically.
+
+
+Relations summary
+-----------------
+
+	User 1:1 UserStats
+	User 1:N ExerciseSession, ActivityLog, CustomActivity, ChallengeParticipant
+	User N:M Badge through UserBadge
+	User 1:N RefreshToken, PasswordResetToken, EmailVerificationToken
+	Challenge 1:N ChallengeParticipant
+	Challenge 1:N ChallengePositionBadge
+	ActivityArea 1:N ActivitySubActivity
+	Activity 1:N ActivityLog, ExerciseSession
+	Badge 1:1 or 1:N with each rule table
+
+
+Invariants worth protecting
+---------------------------
+
+* users.totalXp is the only XP figure any client displays. Everything that
+  awards XP must increment it in the same transaction as the row it writes.
+* One ChallengeParticipant per (user, challenge). The unique index enforces
+  it; code should upsert, not insert blindly.
+* Points already awarded are never recalculated retroactively. pointsPerUnit
+  is snapshotted on the log row for that reason.
+* Faculty display strings are the join key between the database and the
+  faculty theme in both clients. Treat them as an interface, not as copy.

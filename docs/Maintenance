@@ -1,0 +1,133 @@
+Maintenance
+===========
+
+Read this before assuming any part of the backend is finished. Items are
+ordered by how much damage ignoring them causes.
+
+
+Correctness gaps
+----------------
+
+1. Quest claiming has no completion record and no idempotency guard.
+   POST /quest/:id/claim looks up the quest, adds quest.xp to the user, and
+   returns. Nothing records that the user claimed it, nothing checks whether
+   the quest is in today's set, and nothing prevents the same call being made
+   a hundred times. A student with the endpoint can mint unlimited XP.
+
+   The fix is a quest_completions table keyed unique on (userId, questId,
+   dateKey), written in the same transaction as the XP increment, with the
+   claim rejected if the quest is not in resolveDailyQuests(today).
+
+2. The same handler emits quests:pointsgranted to all students for one
+   student's claim. It should be emit.toUser.
+
+3. Quest badges are never evaluated. services/badges/questBadges.ts exports
+   evaluateQuestBadges and has no call site. Once (1) is fixed it should be
+   called from the claim handler, inside the same transaction.
+
+4. Challenge podium badges are never settled.
+   services/badges/challengeBadges.ts exports settleChallengePositionBadges
+   and nothing calls it. Podium badge rows are created with the challenge, so
+   the data is there; what is missing is the moment of settlement when a
+   challenge ends. There is no scheduler in the project, so this needs either
+   a cron entry hitting an admin endpoint or a lazy settle on the first read
+   of a finished challenge.
+
+5. challenges.participantsCount is denormalised and only maintained on the
+   register path. Any other write to challenge_participants leaves it stale.
+
+
+Legacy and duplication
+----------------------
+
+* user_stats holds xp, currentStreak and longestStreak that nothing
+  authoritative reads. Streak and level are derived in meController from
+  session history and users.totalXp. Either backfill and start using the
+  table or drop it; leaving it half-alive invites someone to read the wrong
+  number.
+
+* Two activity ledgers exist. exercise_sessions is what every user-facing
+  read path uses. activity_logs belongs to the older points-per-unit Activity
+  catalogue and is written only by the award-points endpoint. Decide which
+  survives before adding features to either.
+
+* Two activity catalogues exist for the same reason: activities
+  (points-per-unit) and activity_areas plus activity_sub_activities (the
+  facility tree the app browses). They are not joined.
+
+
+Dead code to remove
+-------------------
+
+Verified unreferenced from any live import path.
+
+	src/models/Avatar.ts
+		Comment-only stub. No class, no init call, not imported by
+		associations.ts. It describes a design that was superseded: avatars
+		are derived from faculty plus level and have no table.
+
+	relations.md      empty file, zero bytes
+	routes.md         stale duplicate of the route list, superseded by
+	                  docs/api.md
+
+	docs/BADGES.md
+	docs/badge-api-for-frontend.md
+	docs/badge-system-implementation.md
+	docs/badge-system-plan.md
+	docs/badge-system-spec.md
+	docs/badges-and-activities.md
+		Working notes from the badge design phase, roughly 100 KB of
+		overlapping drafts. The content that is still true is in
+		docs/gamification.md and docs/data-model.md.
+
+Exports with no call site anywhere. Each is either an intentional seam or a
+leftover; check the reason before deleting.
+
+	realtime/io.ts              emitToRoom, getIO
+	                            emitToRoom is the primitive the emit helpers
+	                            wrap; keep it. getIO is unused, remove it.
+	services/badges/questBadges.ts       evaluateQuestBadges,
+	                                     templateQuestBadgeName
+	                                     Keep. Blocked on gap (3).
+	services/badges/challengeBadges.ts   settleChallengePositionBadges,
+	                                     templateChallengeBadgeName
+	                                     Keep. Blocked on gap (4).
+	services/badges/exerciseBadges.ts    EXERCISE_RULE_PREFIX,
+	                                     ensureExerciseScopeBadges,
+	                                     templateExerciseBadgeName
+	services/badges/specialtyBadges.ts   SPECIALTY_RULES
+	services/badges/dateUtils.ts         addDays
+
+
+Traps
+-----
+
+* Route order in challengeRoutes.ts. GET /:challengeId is registered last on
+  purpose. Adding a new static path below it makes that path unreachable.
+
+* The faculty display string is an interface. serializers.ts maps the nine
+  Faculty enum values to faculty1..faculty9 and both clients key their art and
+  colours off the result. Editing a faculty name without editing the map sends
+  every affected user to the faculty9 fallback.
+
+* Level maths exists in two places, meController.levelFromXp and
+  serializers.levelFromXp. They currently agree. Change both or neither.
+
+* Season classification also exists twice, in utils/season.ts and in the admin
+  frontend. Same rule.
+
+* Socket events must be emitted after the transaction commits. Emitting inside
+  a transaction that later rolls back tells the clients about a change that
+  did not happen.
+
+
+Work queue
+----------
+
+	1. quest_completions table, idempotent claim, correct emit target
+	2. wire evaluateQuestBadges
+	3. settle challenge podium badges when a challenge ends
+	4. delete the dead files listed above
+	5. resolve the user_stats question
+	6. replace sync({ alter: true }) with migrations
+	7. recompute participantsCount rather than trusting the counter

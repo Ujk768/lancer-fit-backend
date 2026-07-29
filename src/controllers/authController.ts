@@ -169,19 +169,19 @@ export const loginUser = async (req: Request, res: Response) => {
       });
     }
 
-    if (!user.emailVerified) {
-      try {
-        await createEmailVerification(user);
-      } catch (error) {
-        console.error("Failed to send verification code:", error);
-      }
+    // if (!user.emailVerified) {
+    //   try {
+    //     await createEmailVerification(user);
+    //   } catch (error) {
+    //     console.error("Failed to send verification code:", error);
+    //   }
 
-      return res.status(403).json({
-        message: "Please verify your email before logging in",
-        code: "EMAIL_NOT_VERIFIED",
-        email: user.email,
-      });
-    }
+    //   return res.status(403).json({
+    //     message: "Please verify your email before logging in",
+    //     code: "EMAIL_NOT_VERIFIED",
+    //     email: user.email,
+    //   });
+    // }
 
     const isValid = await verifyPassword(password, user.password);
 
