@@ -1,0 +1,112 @@
+Operations
+==========
+
+Requirements
+------------
+
+Node 20 or newer, PostgreSQL 14 or newer. Docker is optional; docker-compose.yml
+brings up the API and a Postgres instance together.
+
+
+Environment
+-----------
+
+Create .env in the repository root. Every variable the code reads:
+
+	PORT                    API port, defaults to 8000
+	NODE_ENV                development | production
+	CLIENT_ORIGINS          comma separated CORS allowlist. Must include the
+	                        admin console origin and, for device testing, the
+	                        tunnel or LAN origin the app uses.
+
+	DB_HOST
+	DB_PORT
+	DB_NAME
+	DB_USER
+	DB_PASSWORD
+
+	JWT_ACCESS_SECRET       signing key for short-lived access tokens
+	JWT_REFRESH_SECRET      signing key for refresh tokens
+
+	SEED_ADMIN_NAME         bootstrap admin created by runSeed
+	SEED_ADMIN_EMAIL
+	SEED_ADMIN_PASSWORD
+
+	SANDBOX_EMAIL_HOST      development mail catcher, e.g. a Mailtrap inbox
+	SANDBOX_EMAIL_PORT
+	SANDBOX_EMAIL_USER
+	SANDBOX_EMAIL_PASSWORD
+	EMAIL_USER              real sending account for production
+
+Never commit .env. Keep a .env.example with the keys and no values.
+
+
+Running
+-------
+
+	npm install
+	npm run dev        ts-node-dev, restarts on change, transpile only
+	npm run build      tsc to dist/
+	npm start          node dist/index.js
+	docker compose up  API plus Postgres
+
+Startup order in src/index.ts is authenticate, defineAssociations, sync,
+runSeed, listen. A failure at any step is logged and the process does not
+listen, so an API that exits immediately is nearly always a database or
+credentials problem.
+
+
+Database lifecycle
+------------------
+
+sequelize.sync({ alter: true }) runs on every boot. There is no migration
+tool. Read docs/architecture.md for the full consequences. The two failures
+that will actually happen to you:
+
+* Adding a NOT NULL column to a populated table fails with Postgres error
+  23502. Either make it nullable and backfill, or truncate the table in
+  development. refresh_tokens is safe to truncate; it only holds sessions and
+  the effect is that everyone signs in again.
+* A dropped or narrowed column may not be applied. Verify against the live
+  schema rather than assuming the model is the truth.
+
+runSeed is idempotent and can be re-run safely.
+
+
+Email
+-----
+
+Verification and password reset both send six digit codes through nodemailer.
+In development point SANDBOX_EMAIL_* at a mail catcher so no real mail leaves
+the machine. Templates are in src/services/emailTemplates/ and share
+emailLayout.ts; edit the layout once rather than each template.
+
+Only hashes of the codes are stored, so a code cannot be recovered from the
+database. If a developer needs one, read it from the mail catcher.
+
+
+Connecting the clients
+----------------------
+
+	Admin console   VITE_API_PATH must end in /api
+	                e.g. VITE_API_PATH=http://localhost:8000/api
+	Mobile app      EXPO_PUBLIC_API_URL must also end in /api and must be an
+	                address the device can reach. localhost points at the
+	                phone itself; use the machine's LAN address or an Expo
+	                tunnel.
+
+Both clients derive the socket origin by stripping the trailing /api. If the
+base URL is wrong the symptom is a working login screen and a socket that
+never connects, or the reverse.
+
+
+Deployment notes
+----------------
+
+Before this runs against real student data:
+
+* Replace sync({ alter: true }) with versioned migrations.
+* Move JWT secrets into the deployment platform's secret store.
+* Pin CLIENT_ORIGINS to the real origins only.
+* Put the API behind HTTPS. Access tokens are bearer credentials.
+* Set up a backup schedule for the Postgres instance.

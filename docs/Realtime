@@ -1,0 +1,93 @@
+Realtime
+========
+
+Socket.IO runs on the same HTTP server as the REST API, at the API origin
+without the /api suffix. If the API is http://host:8000/api the socket URL is
+http://host:8000.
+
+
+Handshake and rooms
+-------------------
+
+The client passes the access token in the handshake auth field. The server
+verifies it with the same function REST uses, so an expired access token means
+a rejected socket. On connect the socket joins two rooms:
+
+	user:<userId>          exactly one connection group per account
+	students | admins      by the role claim in the token
+
+Controllers never touch the io object. They import emit from
+src/realtime/io.ts and use one of:
+
+	emit.toUser(userId, event, payload)
+	emit.toAllStudents(event, payload)
+	emit.toAllAdmins(event, payload)
+	emit.toEveryone(event, payload)
+
+
+Event contract
+--------------
+
+Payloads are deliberately thin. An event says what changed, not what the new
+state is; the receiver refetches. This keeps the socket layer from becoming a
+second, drifting copy of the API.
+
+	Event                     Audience    Emitted by
+	----------------------------------------------------------------
+	challenge:created         students    createChallenge
+	challenge:deleted         students    deleteChallenge
+	challenge:joined          admins      registerForChallenge
+	challenge:participants    everyone    registerForChallenge
+	validation:submitted      admins      submitChallengePoints
+	validation:decided        the user    approve / reject
+	validation:resolved       admins      approve / reject
+	quests:updated            students    setDailyQuests, clearDailyOverride
+	quests:pointsgranted      students    claimQuestPoints
+	areas:updated             students    area and sub-activity mutations
+	exercise:logged           user+admins logExercise
+	checkin:done              the user    checkIn
+
+
+Who listens to what
+-------------------
+
+Admin console (lancer-admin):
+	App shell        validation:submitted, validation:resolved (pending badge)
+	Validations      validation:submitted, validation:resolved
+	ChallengeDetail  validation:resolved, validation:submitted,
+	                 challenge:participants
+	Leaderboards     validation:resolved, challenge:created
+	Quests           quests:updated
+
+Mobile app (lancer-fit_mobile), via src/services/realtime.js:
+	challenge:created      refetch challenges and raise a local banner
+	validation:submitted   banner
+	validation:decided     banner and refetch
+
+
+Rules for adding an event
+-------------------------
+
+1. Name it noun:verb-in-past-tense, lower case, colon separated.
+2. Emit it from the controller, after the transaction commits, never inside
+   the service layer.
+3. Send identifiers, not entities.
+4. Address the narrowest room that works. quests:pointsgranted currently goes
+   to all students for a single user's claim; that is a bug, not a pattern to
+   copy.
+5. Add a row to the table above.
+
+
+Known behaviour to be aware of
+------------------------------
+
+* The mobile socket is created after the auth context mounts, so listeners
+  registered at mount time can bind to a null socket. src/services/realtime.js
+  rebinds once the connection exists. Any new mobile listener must go through
+  that hook rather than reaching for the socket directly.
+* There is no acknowledgement, retry or replay. A client that was offline when
+  an event fired will not see it; it recovers only on its next fetch. Screens
+  that matter should still load their data on focus.
+* Push notifications are a separate mechanism (Expo push via
+  src/utils/push.ts) and are sent alongside, not instead of, socket events.
+  Sockets update an open app; push reaches a closed one.

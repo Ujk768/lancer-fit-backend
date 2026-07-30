@@ -1,0 +1,124 @@
+Gamification rules
+==================
+
+This file is the authoritative statement of the scoring rules. Both clients
+mirror parts of it for display; if the two ever disagree, the server is right
+and the client is the bug.
+
+
+XP
+--
+
+users.totalXp is the only balance. It is a float column and is always changed
+with an increment inside the transaction that writes the underlying record.
+
+Sources of XP:
+
+	Gym check-in           75 XP, once per calendar day
+	Logged exercise        points computed at log time on the session
+	Activity award         unitsLogged * pointsPerUnit, snapshotted
+	Quest claim            the quest's xp value
+	Challenge approval     pointsAwarded set by staff
+	Challenge podium       podiumFirst / Second / Third on the challenge
+	Badge award            the badge's awardXpValue
+
+XP is never removed. Deleting a badge cascades the award row away but does not
+claw back the XP it granted.
+
+
+Levels
+------
+
+	level = floor(totalXp / 2000) + 1
+
+Defined in src/controllers/meController.ts and mirrored in
+src/utils/serializers.ts. Both must change together. /user/me also returns
+xpIntoLevel, xpMax (2000) and xpToNext so the client never recomputes the
+curve itself.
+
+
+Avatar tiers
+------------
+
+Avatar art changes at tier boundaries, not at every level. Five tiers:
+
+	Tier 1  Squire   levels 1-2
+	Tier 2  Knight   levels 3-7
+	Tier 3  Hero     levels 8-13
+	Tier 4  Legend   levels 14-19
+	Tier 5  Lancer   levels 20-25
+
+serializeUser returns both level and avatarTier so any leaderboard renders
+correct art without a second call. Which art file is used is the client's
+concern: the tier picks the frame within the faculty's set, and the faculty
+key picks the set.
+
+
+Streaks
+-------
+
+The streak is derived, not stored. GET /user/me pulls the distinct calendar
+days on which the user has an ExerciseSession and walks backwards from today.
+If today has no session yet the walk starts at yesterday, so a streak stays
+alive until midnight rather than resetting the moment the day rolls over. The
+walk is bounded at 730 days.
+
+The consequence is that a streak cannot be desynchronised from reality, and
+that deleting sessions rewrites history. user_stats.currentStreak and
+longestStreak are legacy and are not the values the app displays.
+
+
+Daily quests
+------------
+
+Three quests are active per day. src/services/dailyQuests.ts resolves them and
+is the single source of truth; the badge engine and the endpoint both call it,
+deliberately, so the two can never diverge.
+
+Resolution order for a date key "YYYY-MM-DD":
+
+1. If a daily_quest_overrides row exists for that date and at least one of its
+   quest ids still resolves to a live quest, those quests are the day's set.
+2. Otherwise a deterministic pick of up to three from the bank. The date key
+   is hashed into a seed and a linear congruential sequence draws without
+   replacement. Same date plus same bank always yields the same three, so no
+   per-day state has to be written and every client agrees.
+
+An override whose quests have all been deleted falls back to the deterministic
+pick rather than serving an empty day.
+
+Staff edit tomorrow, not today. The admin console shows today's set locked and
+the next day editable, which is what the override table is designed for.
+
+
+Badges
+------
+
+Every badge is a row in badges plus a rule row in exactly one family table.
+The rule row is what makes it awardable; a badge with no rule row can only be
+granted by hand.
+
+Families and where they are evaluated:
+
+	activity   services/badges/activityBadges.ts
+	           evaluated in activityController on award-points
+	exercise   services/badges/exerciseBadges.ts
+	           evaluated in exerciseController on log
+	specialty  services/badges/specialtyBadges.ts
+	           evaluated in activityController on award-points
+	quest      services/badges/questBadges.ts
+	           NOT evaluated anywhere yet
+	challenge  services/badges/challengeBadges.ts
+	           created with the challenge; podium settlement NOT called yet
+
+Awarding always goes through awardBadgeIfNotOwned, which relies on the unique
+(userId, badgeID) index to make a repeated evaluation a no-op. Evaluation is
+therefore safe to call more than once and safe to call inside the caller's
+transaction, which is what every call site does.
+
+Tier and threshold columns let one badge family express bronze/silver/gold
+ladders without new tables. Metric names the counter, threshold the value at
+which the tier is earned.
+
+The two unwired families are the main outstanding work in this area. See
+docs/maintenance.md.

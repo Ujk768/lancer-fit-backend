@@ -1,0 +1,124 @@
+Architecture
+============
+
+Scope
+-----
+
+One Node process serves three things on a single port:
+
+1. A JSON REST API mounted at /api.
+2. A Socket.IO server on the same HTTP server, used for push-free live
+   refresh in both clients.
+3. Startup schema sync and seeding against PostgreSQL.
+
+Two clients consume it: the Expo mobile app (students) and the Vite admin
+console (Campus Recreation staff). There is no server-rendered UI.
+
+
+Request path
+------------
+
+	HTTP request
+	  -> cors (CLIENT_ORIGINS allowlist)
+	  -> express.json
+	  -> /api router (src/routes/index.ts)
+	  -> feature router (src/routes/xRoutes.ts)
+	  -> validate(schema)        optional, zod
+	  -> authenticate            optional, verifies Bearer access token
+	  -> authorize("admin")      optional, role gate
+	  -> controller (asyncHandler wrapped)
+	  -> models / services
+	  -> serializer
+	  -> res.json
+	  -> errorHandler on any throw
+
+Nothing bypasses this order. If a controller needs a user id it reads
+req.user.userId, which authenticate populates from the JWT payload.
+
+
+Layers and what belongs in each
+-------------------------------
+
+src/routes/
+	URL to handler mapping and middleware order. No logic. A route file
+	should be readable as a table of contents for its feature.
+
+src/controllers/
+	One exported handler per endpoint. Owns HTTP concerns: reading params,
+	starting transactions, choosing status codes, calling serializers,
+	emitting socket events. Business rules that more than one controller
+	needs do not live here.
+
+src/services/
+	Reusable domain logic with no knowledge of Request or Response.
+	dailyQuests.ts resolves the active quest set for a date. services/badges/
+	is the badge engine. emailService.ts and its templates send mail.
+	passwordResetService.ts and emailVerificationService.ts own OTP lifecycles.
+
+src/models/
+	Sequelize class definitions and column types only. Relations are declared
+	separately in models/associations.ts, which src/index.ts calls once at
+	boot before sync.
+
+src/utils/serializers.ts
+	The contract layer. This file defines the exact JSON shape both frontends
+	parse. Renaming a database column should require changes here and nowhere
+	else. Adding a field to a client means adding it here, not in a controller.
+
+src/realtime/io.ts
+	Owns the Socket.IO instance. Controllers import { emit } and fire named
+	events; they never touch the io object directly.
+
+src/middleware/
+	auth.ts (authenticate, authorize), validate.ts (zod), errorHandler.ts
+	(single JSON error shape).
+
+
+Authentication model
+--------------------
+
+* Access token: short-lived JWT, sent as Authorization: Bearer <token>.
+  Signed with JWT_ACCESS_SECRET. Payload carries userId, role, name.
+* Refresh token: long-lived, hashed into the refresh_tokens table. The raw
+  token is only ever held by the client. POST /api/auth/refresh exchanges it
+  for a new access token.
+* Students authenticate at /api/auth/login. Staff authenticate at
+  /api/admin/login. Both mint the same token pair; role separates them.
+* The Socket.IO handshake reuses the access token. Same secret, same verify
+  function, so an expired REST token means an expired socket too.
+
+University single sign-on is not implemented. JWT is the authentication layer
+for this phase and was designed so an SSO provider can be added in front of it
+without touching controllers. See docs/maintenance.md.
+
+
+Schema management
+-----------------
+
+src/index.ts calls sequelize.sync({ alter: true }) at every boot. There is no
+migration tool in the project. Consequences you must know about:
+
+* Adding a nullable column is safe.
+* Adding a NOT NULL column to a table that already has rows will fail at boot
+  with a Postgres 23502 error. Either add it nullable and backfill, or clear
+  the table in development.
+* Column drops and type narrowing are not reliably applied by alter.
+* Production deployment should switch to sequelize-cli migrations before the
+  database holds real student data.
+
+runSeed() in src/config/seed.ts runs after sync and is idempotent. It creates
+the bootstrap admin from SEED_ADMIN_* and any baseline reference rows.
+
+
+Adding a feature: the checklist
+-------------------------------
+
+1. Model in src/models/, relation in models/associations.ts if it joins.
+2. Serializer function in src/utils/serializers.ts for anything the clients
+   will read.
+3. Controller in src/controllers/, wrapped in asyncHandler, transaction if it
+   writes more than one table.
+4. Route file, registered in src/routes/index.ts.
+5. If a client should react without polling, emit a socket event and document
+   it in docs/realtime.md.
+6. Update docs/api.md.

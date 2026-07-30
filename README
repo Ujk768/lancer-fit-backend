@@ -1,0 +1,80 @@
+LancerFit backend
+=================
+
+REST API and realtime server for LancerFit, the gamified fitness platform for
+the Toldo Lancer Centre at the University of Windsor. It serves both clients:
+the student mobile app (lancer-fit_mobile) and the staff admin console
+(lancer-admin).
+
+Node.js, Express 5, TypeScript, Sequelize on PostgreSQL, Socket.IO, JWT.
+
+
+Quick Start
+-----------
+
+	npm install
+	cp .env.example .env        # then fill in DB and JWT values
+	npm run dev                 # ts-node-dev on http://localhost:8000
+
+	npm run build               # tsc -> dist/
+	npm start                   # node dist/index.js
+
+Docker:
+
+	docker compose up
+
+REST base is /api. Socket.IO listens on the same port and origin without the
+/api suffix.
+
+
+Essential Documentation
+-----------------------
+
+All maintainer documentation lives in docs/:
+
+* docs/architecture.md   - layering, request path, where to add code
+* docs/data-model.md     - every table, field, relation and invariant
+* docs/api.md            - complete endpoint reference
+* docs/realtime.md       - Socket.IO rooms and event contract
+* docs/gamification.md   - XP, levels, streaks, quests, badge engine
+* docs/operations.md     - environment, database, seeding, deployment
+* docs/maintenance.md    - known gaps, traps, dead code, work queue
+
+Read docs/architecture.md first. Read docs/maintenance.md before you trust
+anything to be finished.
+
+
+Layout
+------
+
+	src/index.ts        process entry: express, sequelize sync, seed, socket
+	src/config/         database connection and startup seed
+	src/routes/         URL to controller mapping only
+	src/controllers/    request handling, transactions, responses
+	src/services/       reusable domain logic (quests, badges, email)
+	src/models/         Sequelize model definitions
+	src/middleware/     auth, validation, error handling
+	src/realtime/       Socket.IO server and emit helpers
+	src/utils/          jwt, password, serializers, push, season
+	src/validators/     zod request schemas
+
+
+Conventions
+-----------
+
+* Every response body the frontends consume is produced by a function in
+  src/utils/serializers.ts. Controllers never hand a raw model to res.json.
+* Every controller is wrapped in asyncHandler so throws reach errorHandler.
+* Any write that touches more than one table runs inside a transaction.
+* Routes declare their own auth: authenticate for any signed-in user,
+  authorize("admin") for staff-only.
+* Static route paths are registered before parameterised ones.
+
+
+Who Are You?
+------------
+
+* New maintainer: docs/architecture.md, then docs/data-model.md.
+* Adding an endpoint: docs/api.md has the shape and the checklist.
+* Debugging the mobile or admin client: docs/realtime.md and docs/api.md.
+* Continuing the project: docs/maintenance.md is the handover.

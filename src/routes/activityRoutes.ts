@@ -1,11 +1,10 @@
 import {Router} from "express";
-import { awardActivityPoints, createActivity, getAllActivities } from "../controllers/activityController";
+import { awardActivityPoints, createActivity, getAllActivities, getActivityBadgeTemplate } from "../controllers/activityController";
 import { authenticate } from "../middleware/auth";
 
 const router = Router();
-console.log("DEBUG:", { authenticate, createActivity, getAllActivities, awardActivityPoints });
 
-
+router.get("/badge-template",authenticate,getActivityBadgeTemplate)
 router.post("/create",authenticate,createActivity)
 router.get("/all",authenticate,getAllActivities)
 router.post("/:activityid/award-points",authenticate,awardActivityPoints)

@@ -1,16 +1,45 @@
+// src/routes/authRoutes.ts
 import { Router } from "express";
-
-import { forgotPasswordSchema, loginSchema, resetPasswordSchema, signupSchema } from "../validators/authValidator";
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  resendVerificationSchema,
+  resetPasswordSchema,
+  signupSchema,
+  verifyEmailSchema,
+  logoutSchema,
+  refreshSchema,
+  verifyResetCodeSchema,
+} from "../validators/authValidator";
 import { validate } from "../middleware/validate";
-import { forgotPassword, loginUser, logoutUser, refresh, registerUser, resetPassword } from "../controllers/authController";
+import {
+  forgotPassword,
+  loginUser,
+  logoutUser,
+  refresh,
+  registerUser,
+  resendVerificationCode,
+  resetPassword,
+  verifyEmail,
+  verifyResetCode,
+} from "../controllers/authController";
 
-// log out to be added
 const router = Router();
 router.post("/register", validate(signupSchema), registerUser);
 router.post("/login", validate(loginSchema), loginUser);
-router.post("/forgot", validate(forgotPasswordSchema), forgotPassword);
-router.post("/reset", validate(resetPasswordSchema), resetPassword);
-router.post("/refresh", refresh);
-router.post("/logout", logoutUser); // good to add alongside it
-
+router.post("/verify-email", validate(verifyEmailSchema), verifyEmail); // Assuming you have a verifyEmail controller function
+router.post(
+  "/resend-verification",
+  validate(resendVerificationSchema),
+  resendVerificationCode,
+);
+router.post("/forgot-password", validate(forgotPasswordSchema), forgotPassword);
+router.post(
+  "/verify-reset-code",
+  validate(verifyResetCodeSchema),
+  verifyResetCode,
+);
+router.post("/reset-password", validate(resetPasswordSchema), resetPassword);
+router.post("/refresh", validate(refreshSchema), refresh);
+router.post("/logout", validate(logoutSchema), logoutUser);
 export default router;

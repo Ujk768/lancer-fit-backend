@@ -1,4 +1,5 @@
-// src/models/associations.ts
+// All model relationships in one place (This file's only job is wiring).
+
 import { User } from "./User";
 import { UserStats } from "./UserStats";
 import { Challenge } from "./Challenge";
@@ -7,40 +8,30 @@ import UserBadge from "./UserBadge";
 import Badge from "./Badges";
 import { Activity } from "./Activity";
 import { ActivityLog } from "./ActivityLog";
+import { ExerciseSession } from "./ExerciseSession";
+import { ActivityArea } from "./ActivityArea";
+import { ActivitySubActivity } from "./ActivitySubActivity";
+import { CustomActivity } from "./CustomActivity";
+import { ChallengePositionBadge } from "./ChallengePositionBadge";
+import { ActivityBadge } from "./ActivityBadge";
+import { QuestBadge } from "./QuestBadge";
+import { SpecialtyBadge } from "./SpecialtyBadge";
+import { ExerciseBadge } from "./ExerciseBadge";
+import { RefreshToken } from "./RefreshToken";
+import { PasswordResetToken } from "./PasswordResetToken";
+import { EmailVerificationToken } from "./EmailVerificationToken";
+// PushToken is imported here purely so it registers with Sequelize and its
+// table is created by sequelize.sync(). It has no relational associations.
+import "./PushToken";
 
 export function defineAssociations() {
-  // ── M:N — User <-> Challenge through the bridge ──────────────
+  // ── User <-> Challenge (M:N through the participant bridge) ──
   User.belongsToMany(Challenge, {
-    through: ChallengeParticipant, // the bridge model
+    through: ChallengeParticipant,
     foreignKey: "userId",
     otherKey: "challengeId",
-    as: "tlcChallenges", // alias for include queries
+    as: "tlcChallenges",
   });
-
-  User.hasMany(ChallengeParticipant, {
-    foreignKey: "userId",
-    as: "participations",
-  });
-
-  UserStats.belongsTo(User, {
-    foreignKey: "userId",
-    as: "user",
-  });
-
-  // ── 1:M — User -> Activity ──────────────────────────────────────
-  User.hasMany(Activity, {
-    foreignKey: "userId",
-    as: "activities",
-    onDelete: "CASCADE",
-  });
-
-  User.belongsToMany(Badge, {
-    through: UserBadge,
-    foreignKey: "userId",
-    otherKey: "badgeId",
-    as: "badges", // Allows: user.badges to get all badges earned by a user
-  });
-
   Challenge.belongsToMany(User, {
     through: ChallengeParticipant,
     foreignKey: "challengeId",
@@ -48,33 +39,111 @@ export function defineAssociations() {
     as: "participants",
   });
 
-  // ── Bridge associations — lets you do participant.user etc ───────
+  User.hasMany(ChallengeParticipant, {
+    foreignKey: "userId",
+    as: "participations",
+  });
+  Challenge.hasMany(ChallengeParticipant, {
+    foreignKey: "challengeId",
+    as: "participations",
+  });
   ChallengeParticipant.belongsTo(User, { foreignKey: "userId", as: "user" });
   ChallengeParticipant.belongsTo(Challenge, {
     foreignKey: "challengeId",
     as: "challenge",
   });
 
-  Challenge.hasMany(ChallengeParticipant, {
-    foreignKey: "challengeId",
-    as: "participations",
-  });
+  // ── User <-> Stats (1:1) ──
+  UserStats.belongsTo(User, { foreignKey: "userId", as: "user" });
+  User.hasOne(UserStats, { foreignKey: "userId", as: "stats" });
 
-  Activity.belongsTo(User, {
-    foreignKey: "userId",
-    as: "user",
+  // ── User <-> Badge (M:N) ──
+  // NOTE: otherKey/foreignKey must be "badgeID" (capital ID) to match the real
+  // column on UserBadge — using "badgeId" here silently creates a second,
+  // never-populated column instead of reusing the real one. See docs/badge-system-spec.md.
+  User.belongsToMany(Badge, {
+    through: UserBadge, foreignKey: "userId", otherKey: "badgeID", as: "badges",
   });
-
   Badge.belongsToMany(User, {
-    through: UserBadge,
-    foreignKey: "badgeId",
-    otherKey: "userId",
-    as: "owners", // Allows: badge.owners to see all users who earned this badge
+    through: UserBadge, foreignKey: "badgeID", otherKey: "userId", as: "owners",
   });
 
+  // ── Badge sub-type tables (1:1 — one Badge row extends into exactly one
+  //    of these, depending on its badgeType) ──
+  Badge.hasOne(ChallengePositionBadge, { foreignKey: "badgeId" });
+  ChallengePositionBadge.belongsTo(Badge, { foreignKey: "badgeId" });
+  ChallengePositionBadge.belongsTo(Challenge, { foreignKey: "challengeId" });
+  Challenge.hasMany(ChallengePositionBadge, { foreignKey: "challengeId" });
+
+  Badge.hasOne(ActivityBadge, { foreignKey: "badgeId" });
+  ActivityBadge.belongsTo(Badge, { foreignKey: "badgeId" });
+  ActivityBadge.belongsTo(Activity, { foreignKey: "activityId" }); // only set when scope="activity"
+  Activity.hasMany(ActivityBadge, { foreignKey: "activityId" });
+
+  Badge.hasOne(QuestBadge, { foreignKey: "badgeId" });
+  QuestBadge.belongsTo(Badge, { foreignKey: "badgeId" });
+
+  Badge.hasOne(SpecialtyBadge, { foreignKey: "badgeId" });
+  SpecialtyBadge.belongsTo(Badge, { foreignKey: "badgeId" });
+
+  Badge.hasOne(ExerciseBadge, { foreignKey: "badgeId" });
+  ExerciseBadge.belongsTo(Badge, { foreignKey: "badgeId" });
+
+  // ── Activity catalog <-> ActivityLog (1:M) ──
   User.hasMany(ActivityLog, { foreignKey: "userId" });
   ActivityLog.belongsTo(User, { foreignKey: "userId" });
-
   Activity.hasMany(ActivityLog, { foreignKey: "activityId" });
   ActivityLog.belongsTo(Activity, { foreignKey: "activityId" });
+
+  // ── Exercise history for stats (1:M) ──
+  User.hasMany(ExerciseSession, { foreignKey: "userId", as: "sessions" });
+  ExerciseSession.belongsTo(User, { foreignKey: "userId", as: "user" });
+  Activity.hasMany(ExerciseSession, { foreignKey: "activityId" });
+  ExerciseSession.belongsTo(Activity, { foreignKey: "activityId" });
+
+  // ── Activity areas <-> sub-activities (1:M) ──
+  ActivityArea.hasMany(ActivitySubActivity, {
+    foreignKey: "areaId",
+    as: "subs",
+    onDelete: "CASCADE",
+  });
+  ActivitySubActivity.belongsTo(ActivityArea, {
+    foreignKey: "areaId",
+    as: "area",
+  });
+
+  // ── User <-> CustomActivity (1:M) ──
+  User.hasMany(CustomActivity, {
+    foreignKey: "userId",
+    as: "customActivities",
+    onDelete: "CASCADE",
+  });
+  CustomActivity.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+  User.hasMany(RefreshToken, {
+    foreignKey: "userId",
+    as: "refreshTokens",
+  });
+
+  RefreshToken.belongsTo(User, {
+    foreignKey: "userId",
+  });
+
+  User.hasMany(PasswordResetToken, {
+    foreignKey: "userId",
+    as: "passwordResetTokens",
+  });
+
+  PasswordResetToken.belongsTo(User, {
+    foreignKey: "userId",
+  });
+
+  User.hasMany(EmailVerificationToken, {
+    foreignKey: "userId",
+    as: "emailVerificationTokens",
+  });
+
+  EmailVerificationToken.belongsTo(User, {
+    foreignKey: "userId",
+  });
 }

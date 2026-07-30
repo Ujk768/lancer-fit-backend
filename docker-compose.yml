@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
-  # 1. PostgreSQL Database Service
+  # PostgreSQL database. This is the only service we run in Docker for local dev.
   db:
-    image: postgres:latest
+    image: postgres:16
     container_name: lancer-fit-db
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-pwd}
@@ -13,29 +11,26 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql
+      # NOTE the /data suffix — this is the correct Postgres data directory.
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-user} -d ${DB_NAME:-lancer-fit-db}"]
       interval: 5s
       timeout: 5s
       retries: 5
-
-  # 2. Node.js TypeScript Backend Service
-  backend:
+  app:
     build:
       context: .
       target: development
-    container_name: node_ts_backend
-    restart: always
+    container_name: lancer-fit-app
     ports:
       - "8000:8000"
     environment:
-      - PORT=${PORT:-8000}
-      - DB_HOST=${DB_HOST:-db}
-      - DB_NAME=${DB_NAME:-lancer-fit-db}
+      - NODE_ENV=development
+      - DB_HOST=db  # This works inside Docker!
       - DB_USER=${DB_USER:-user}
       - DB_PASSWORD=${DB_PASSWORD:-pwd}
-      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-lancer-fit-db}
     depends_on:
       db:
         condition: service_healthy
@@ -54,6 +49,5 @@ services:
         # Rebuild if package-lock.json changes too
         - action: rebuild
           path: ./package-lock.json
-
 volumes:
   pgdata:

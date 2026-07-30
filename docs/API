@@ -1,0 +1,205 @@
+API reference
+=============
+
+Base URL is /api. Every path below is relative to it.
+
+Auth column:
+	-       public
+	user    valid access token required
+	admin   valid access token with role admin
+
+Success bodies are { success: true, ... }. Errors come from
+middleware/errorHandler.ts as { success: false, message, errors? } with an
+appropriate status. A 401 on a user route means the access token is missing or
+expired; both clients respond by calling /auth/refresh once and retrying.
+
+
+Auth  /auth
+-----------
+
+	POST   /auth/register              -      register a student, sends OTP
+	POST   /auth/login                 -      returns access + refresh tokens
+	POST   /auth/verify-email          -      consume the email OTP
+	POST   /auth/resend-verification   -      reissue the email OTP
+	POST   /auth/forgot-password       -      send a reset OTP
+	POST   /auth/verify-reset-code     -      check the reset OTP
+	POST   /auth/reset-password        -      set a new password
+	POST   /auth/refresh               -      exchange refresh for access
+	POST   /auth/logout                -      revoke the refresh token
+
+All request bodies are validated by zod schemas in
+src/validators/authValidator.ts before the controller runs. A validation
+failure returns 400 with an errors array.
+
+
+Admin  /admin
+-------------
+
+	POST   /admin/login                -      staff login
+	GET    /admin                      admin  list admin accounts
+	POST   /admin                      admin  create an admin account
+	DELETE /admin/:id                  admin  remove an admin account
+
+
+User  /user
+-----------
+
+	GET    /user/me                    user   live profile
+	GET    /user/all                   admin  all students
+
+/user/me is the mobile home screen's source of truth. It returns totalXp,
+level, xpIntoLevel, xpMax, xpToNext, streak, loggedToday and totalWorkouts.
+Level and streak are computed on the fly, never read from user_stats.
+
+
+Challenges  /challenge
+----------------------
+
+	GET    /challenge/me               user   challenges this user joined
+	GET    /challenge/active           -      active challenges
+	GET    /challenge/all              -      every challenge
+	GET    /challenge/pending          admin  challenges awaiting review
+	POST   /challenge/category         user   filter by category
+	POST   /challenge/add              admin  create a challenge
+	POST   /challenge/:id/register     user   join
+	GET    /challenge/:id/leaderboard  user   standings for one challenge
+	POST   /challenge/:id/submit-points user  submit a result for validation
+	GET    /challenge/:id/participants admin  roster with statuses
+	DELETE /challenge/:id              admin  delete
+	GET    /challenge/:id              user   one challenge
+
+Route order matters. The bare GET /challenge/:id is registered last so that
+/me, /active, /all and /pending are not swallowed by the parameter.
+
+/challenge/active additionally returns recentParticipants, the three most
+recent joiners per challenge, so the mobile browse cards can show real
+avatars. It is fetched with two batched queries, not per challenge; keep it
+that way.
+
+submit-points is re-submittable. A student whose result was approved or
+rejected may submit again, which resets the row to pending. It is only
+blocked while a submission is already awaiting review.
+
+
+Validations  /participants
+--------------------------
+
+	GET    /participants/pending           admin  the validation queue
+	PATCH  /participants/:id/approve       admin  approve, award points
+	PATCH  /participants/:id/reject        admin  reject
+
+Approval is the only path that turns a submitted result into leaderboard XP.
+
+
+Quests  /quest
+--------------
+
+	GET    /quest/list                 user   the whole quest bank
+	GET    /quest/daily                user   today's active quests
+	PUT    /quest/set-daily            admin  pin quests to a date
+	DELETE /quest/daily/:date          admin  clear a date's override
+	POST   /quest/add                  admin  add to the bank
+	DELETE /quest/:id                  admin  remove from the bank
+	POST   /quest/:id/claim            user   claim a quest's XP
+
+set-daily takes a date key and an array of quest ids. Clearing an override
+returns that date to the deterministic selection.
+
+/quest/:id/claim currently has no completion record and no idempotency guard.
+Read docs/maintenance.md before building on it.
+
+
+Activities  /activity
+---------------------
+
+	GET    /activity/badge-template    user   badge template for an activity
+	POST   /activity/create            user   create an activity
+	GET    /activity/all               user   the activity catalogue
+	POST   /activity/:id/award-points  user   log against an activity
+
+
+Areas  /area
+------------
+
+	GET    /area                       user   areas with sub-activities
+	POST   /area                       admin  add an area
+	DELETE /area/:id                   admin  remove an area
+	POST   /area/:id/activity          admin  add a sub-activity
+	DELETE /area/:id/activity/:subId   admin  remove a sub-activity
+
+Every mutation emits areas:updated so the mobile log screen refreshes its
+catalogue without a restart.
+
+
+Custom activities  /custom-activity
+-----------------------------------
+
+	GET    /custom-activity            user   this user's custom entries
+	POST   /custom-activity            user   create one
+	PATCH  /custom-activity/:id/pin    user   pin or unpin
+	DELETE /custom-activity/:id        user   delete
+
+
+Exercise  /exercise
+-------------------
+
+	POST   /exercise/log               user   log a session
+	GET    /exercise/history           user   session history
+
+Logging writes an ExerciseSession, increments users.totalXp and runs the
+exercise badge evaluation, all inside one transaction.
+
+
+Stats  /stats
+-------------
+
+	GET    /stats/exercises            user   distinct exercises logged
+	GET    /stats/summary              user   headline totals
+	GET    /stats/exercise/:key        user   per-exercise time series
+
+/stats/exercise/:key backs the exercise detail screen and its range selector.
+
+
+Leaderboards  /leaderboard
+--------------------------
+
+	GET    /leaderboard/faculty        user   grouped by faculty
+	GET    /leaderboard/campus         user   individual campus-wide
+
+Both include facultyKey and level per entry so a client can render the right
+avatar tier and accent without a second lookup.
+
+
+Check-in  /checkin
+------------------
+
+	POST   /checkin                    user   check in at the TLC
+	GET    /checkin/status             user   whether today is done
+
+A check-in is worth 75 XP and is stored as an ExerciseSession with
+exerciseKey "gym-checkin". The endpoint is idempotent per day: a second call
+returns alreadyCheckedIn without granting XP again.
+
+
+Badges  /badge
+--------------
+
+	GET    /badge/all                  -      badge catalogue
+	GET    /badge/me                   user   badges this user has earned
+	POST   /badge/add                  admin  create a badge
+	DELETE /badge/:badgeId             admin  delete a badge
+
+
+Push  /push
+-----------
+
+	POST   /push/register              user   store an Expo push token
+	DELETE /push/register              user   remove it on logout
+
+
+Adding an endpoint
+------------------
+
+Register the route, wrap the controller in asyncHandler, return through a
+serializer, emit a socket event if a client should react to it, and add a row
+to this file in the same commit.
